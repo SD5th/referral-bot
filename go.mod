@@ -1,4 +1,4 @@
-module github.com/SD5th/referral-bot
+module referral-bot
 
 go 1.25.3
 
