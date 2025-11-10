@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"referral-bot/internal/types"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func handlePreCheckoutQuery(bot *tgbotapi.BotAPI, preCheckoutQuery *tgbotapi.PreCheckoutQuery) {}
+func HandlePreCheckoutQuery(bot types.BotContext, preCheckoutQuery *tgbotapi.PreCheckoutQuery) {}

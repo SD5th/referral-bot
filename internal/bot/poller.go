@@ -4,33 +4,33 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"referral-bot/internal/handlers"
+	"referral-bot/internal/types"
 	"sync"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type Poller struct {
-	api     *tgbotapi.BotAPI
+	bot     types.BotContext
 	running bool
 	cancel  context.CancelFunc
 	mutex   sync.RWMutex
 }
 
-func NewPoller(api *tgbotapi.BotAPI) (*Poller, error) {
-	if api == nil {
+func NewPoller(bot types.BotContext) (*Poller, error) {
+	if bot == nil {
 		return nil, fmt.Errorf("api cannot be nil")
 	}
 
 	return &Poller{
-		api:     api,
+		bot:     bot,
 		running: false,
 		cancel:  nil,
 		mutex:   sync.RWMutex{},
 	}, nil
 }
 
-func (p *Poller) Start() error {
+func (p *Poller) start() error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -53,7 +53,7 @@ func (p *Poller) run(ctx context.Context) {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
-	updates := p.api.GetUpdatesChan(u)
+	updates := p.bot.GetAPI().GetUpdatesChan(u)
 
 	for {
 		select {
@@ -63,7 +63,7 @@ func (p *Poller) run(ctx context.Context) {
 				return
 			}
 
-			go handlers.HandleUpdate(p.api, update)
+			go handleUpdate(p.bot, update)
 
 		case <-ctx.Done():
 			log.Println("Poller stopped by context")
@@ -72,7 +72,7 @@ func (p *Poller) run(ctx context.Context) {
 	}
 }
 
-func (p *Poller) Stop() error {
+func (p *Poller) stop() error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -90,12 +90,12 @@ func (p *Poller) Stop() error {
 	return nil
 }
 
-func (p *Poller) IsRunning() bool {
+func (p *Poller) isRunning() bool {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
 	return p.running
 }
 
-func (p *Poller) GetType() string {
+func (p *Poller) getType() string {
 	return "poller"
 }

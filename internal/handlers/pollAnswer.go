@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"referral-bot/internal/types"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func handlePollAnswer(bot *tgbotapi.BotAPI, pollAnswer *tgbotapi.PollAnswer) {}
+func HandlePollAnswer(bot types.BotContext, pollAnswer *tgbotapi.PollAnswer) {}

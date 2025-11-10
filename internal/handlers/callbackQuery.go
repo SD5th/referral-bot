@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"referral-bot/internal/types"
+
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func handleCallbackQuery(bot *tgbotapi.BotAPI, callbackQuery *tgbotapi.CallbackQuery) {}
+func HandleCallbackQuery(bot types.BotContext, callbackQuery *tgbotapi.CallbackQuery) {}

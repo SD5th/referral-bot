@@ -1,11 +1,8 @@
 package bot
 
 type UpdateReceiver interface {
-	Start() error
-
-	Stop() error
-
-	IsRunning() bool
-
-	GetType() string
+	start() error
+	stop() error
+	isRunning() bool
+	getType() string
 }
