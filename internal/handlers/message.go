@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"log"
-	"referral-bot/internal/bot/tgutils"
+	"referral-bot/internal/tgutils"
 	"referral-bot/internal/types"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
