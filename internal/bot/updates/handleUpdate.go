@@ -1,4 +1,4 @@
-package bot
+package updates
 
 import (
 	"referral-bot/internal/handlers"

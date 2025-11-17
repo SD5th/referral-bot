@@ -2,26 +2,20 @@ package bot
 
 import (
 	"fmt"
-	"referral-bot/internal/types"
+	"referral-bot/internal/bot/updates"
+	"referral-bot/internal/config"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type Bot struct {
 	API            *tgbotapi.BotAPI
-	Config         *types.BotConfig
-	UpdateReceiver *UpdateReceiver
+	Config         *config.BotConfig
+	updateReceiver *updates.UpdateReceiver
 }
 
-func NewBot() (*Bot, error) {
-	config, err := loadConfig()
-	if err != nil {
-		return nil, err
-	}
-	pubC := config.PublicConfig
-	privC := config.PrivateConfig
-
-	api, err := tgbotapi.NewBotAPI(privC.Token)
+func NewBot(config *config.BotConfig) (*Bot, error) {
+	api, err := tgbotapi.NewBotAPI(config.Token)
 	if err != nil {
 		return nil, err
 	}
@@ -29,28 +23,28 @@ func NewBot() (*Bot, error) {
 	bot := &Bot{
 		API:            api,
 		Config:         config,
-		UpdateReceiver: nil,
+		updateReceiver: nil,
 	}
 
-	bot.API.Debug = pubC.Debug
+	bot.API.Debug = config.Debug
 
-	var updateReceiver UpdateReceiver
-	switch pubC.UpdateReceiverType {
+	var updateReceiver updates.UpdateReceiver
+	switch config.Receiver.Type {
 	case "poller":
-		updateReceiver, err = NewPoller(bot)
+		updateReceiver, err = updates.NewPoller(bot, &config.Receiver)
 		if err != nil {
 			return nil, err
 		}
 	default:
 		return nil, fmt.Errorf("Неизвестный UpdateReceiverType")
 	}
-	bot.UpdateReceiver = &updateReceiver
+	bot.updateReceiver = &updateReceiver
 
 	return bot, nil
 }
 
-func (bot *Bot) GetPublicConfig() *types.BotPublicConfig {
-	return bot.Config.PublicConfig
+func (bot *Bot) GetConfig() *config.BotConfig {
+	return bot.Config
 }
 
 func (bot *Bot) GetAPI() *tgbotapi.BotAPI {
@@ -58,13 +52,13 @@ func (bot *Bot) GetAPI() *tgbotapi.BotAPI {
 }
 
 func (bot *Bot) StartReceiver() error {
-	return (*bot.UpdateReceiver).start()
+	return (*bot.updateReceiver).Start()
 }
 
 func (bot *Bot) StopReceiver() error {
-	return (*bot.UpdateReceiver).stop()
+	return (*bot.updateReceiver).Stop()
 }
 
 func (bot *Bot) IsReceiving() bool {
-	return (*bot.UpdateReceiver).isRunning()
+	return (*bot.updateReceiver).IsRunning()
 }

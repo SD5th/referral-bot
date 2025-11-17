@@ -1,9 +1,10 @@
-package bot
+package updates
 
 import (
 	"context"
 	"fmt"
 	"log"
+	"referral-bot/internal/config"
 	"referral-bot/internal/types"
 	"sync"
 
@@ -12,35 +13,38 @@ import (
 
 type Poller struct {
 	bot     types.BotContext
-	running bool
+	running *bool
 	cancel  context.CancelFunc
-	mutex   sync.RWMutex
+	mutex   *sync.RWMutex
+	config  *config.ReceiverConfig
 }
 
-func NewPoller(bot types.BotContext) (*Poller, error) {
+func NewPoller(bot types.BotContext, config *config.ReceiverConfig) (*Poller, error) {
 	if bot == nil {
 		return nil, fmt.Errorf("api cannot be nil")
 	}
 
+	running := false
 	return &Poller{
 		bot:     bot,
-		running: false,
+		running: &running,
 		cancel:  nil,
-		mutex:   sync.RWMutex{},
+		mutex:   &sync.RWMutex{},
+		config:  config,
 	}, nil
 }
 
-func (p *Poller) start() error {
+func (p *Poller) Start() error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	if p.running {
+	if *p.running {
 		return fmt.Errorf("poller is already running")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancel = cancel
-	p.running = true
+	*p.running = true
 
 	log.Printf("Starting poller")
 
@@ -72,11 +76,11 @@ func (p *Poller) run(ctx context.Context) {
 	}
 }
 
-func (p *Poller) stop() error {
+func (p *Poller) Stop() error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	if !p.running {
+	if !(*p.running) {
 		return nil
 	}
 
@@ -84,18 +88,18 @@ func (p *Poller) stop() error {
 		p.cancel()
 	}
 
-	p.running = false
+	*p.running = false
 	log.Println("Poller stopped gracefully")
 
 	return nil
 }
 
-func (p *Poller) isRunning() bool {
+func (p *Poller) IsRunning() bool {
 	p.mutex.RLock()
 	defer p.mutex.RUnlock()
-	return p.running
+	return *p.running
 }
 
-func (p *Poller) getType() string {
+func (p *Poller) GetType() string {
 	return "poller"
 }
