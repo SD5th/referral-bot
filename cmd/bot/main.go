@@ -5,16 +5,26 @@ import (
 	"os"
 	"os/signal"
 	"referral-bot/internal/bot"
+	"referral-bot/internal/config"
 	"referral-bot/internal/types"
 	"syscall"
 )
 
 func main() {
+	var err error
+
+	log.Println("Чтение конфига...")
+
+	var conf *config.Config
+	conf, err = config.LoadConfig()
+	if err != nil {
+		log.Fatalf("Ошибка чтения конфига: %v", err)
+	}
+
 	log.Println("Создание бота...")
 
 	var mainBot types.BotContext
-	var err error
-	mainBot, err = bot.NewBot()
+	mainBot, err = bot.NewBot(&conf.Bot)
 	if err != nil {
 		log.Fatalf("Ошибка создания бота: %v", err)
 	}

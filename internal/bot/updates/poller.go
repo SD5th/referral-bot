@@ -56,6 +56,7 @@ func (p *Poller) Start() error {
 func (p *Poller) run(ctx context.Context) {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
+	u.AllowedUpdates = p.config.AllowedUpdates
 
 	updates := p.bot.GetAPI().GetUpdatesChan(u)
 
