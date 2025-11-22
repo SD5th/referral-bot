@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"referral-bot/internal/bot/updates"
 	"referral-bot/internal/config"
+	"referral-bot/internal/types"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -11,10 +12,11 @@ import (
 type Bot struct {
 	API            *tgbotapi.BotAPI
 	Config         *config.BotConfig
+	Logger         types.LoggerContext
 	updateReceiver *updates.UpdateReceiver
 }
 
-func NewBot(config *config.BotConfig) (*Bot, error) {
+func NewBot(config *config.BotConfig, logger types.LoggerContext) (*Bot, error) {
 	api, err := tgbotapi.NewBotAPI(config.Token)
 	if err != nil {
 		return nil, err
@@ -23,6 +25,7 @@ func NewBot(config *config.BotConfig) (*Bot, error) {
 	bot := &Bot{
 		API:            api,
 		Config:         config,
+		Logger:         logger,
 		updateReceiver: nil,
 	}
 
@@ -50,6 +53,10 @@ func NewBot(config *config.BotConfig) (*Bot, error) {
 
 func (bot *Bot) GetConfig() *config.BotConfig {
 	return bot.Config
+}
+
+func (bot *Bot) GetLogger() types.LoggerContext {
+	return bot.Logger
 }
 
 func (bot *Bot) GetAPI() *tgbotapi.BotAPI {

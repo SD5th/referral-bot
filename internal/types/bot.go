@@ -8,6 +8,7 @@ import (
 
 type BotContext interface {
 	GetConfig() *config.BotConfig
+	GetLogger() LoggerContext
 	GetAPI() *tgbotapi.BotAPI
 	StartReceiver() error
 	StopReceiver() error
