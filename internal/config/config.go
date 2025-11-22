@@ -11,6 +11,23 @@ type BotConfig struct {
 }
 
 type ReceiverConfig struct {
-	Type           string   `json:"type"`
-	AllowedUpdates []string `json:"allowed_updates"`
+	Type           string        `json:"type"`
+	AllowedUpdates []string      `json:"allowed_updates"`
+	BufferSize     int           `json:"buffer_size"`
+	Webhook        WebhookConfig `json:"webhook"`
+	Poller         PollerConfig  `json:"poller"`
+}
+
+type WebhookConfig struct {
+	URL         string `json:"url"`
+	IP          string `json:"ip" default:"0.0.0.0"`
+	Port        string `json:"port" default:"8443"`
+	CertFile    string `json:"cert_file"`
+	KeyFile     string `json:"key_file"`
+	ReadTimeout int    `json:"read_timeout"`
+}
+
+type PollerConfig struct {
+	Offset  int `json:"offset"`
+	Timeout int `json:"timeout"`
 }

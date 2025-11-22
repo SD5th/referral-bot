@@ -35,8 +35,13 @@ func NewBot(config *config.BotConfig) (*Bot, error) {
 		if err != nil {
 			return nil, err
 		}
+	case "webhook":
+		updateReceiver, err = updates.NewWebhook(bot, &config.Receiver)
+		if err != nil {
+			return nil, err
+		}
 	default:
-		return nil, fmt.Errorf("Неизвестный UpdateReceiverType")
+		return nil, fmt.Errorf("unknown UpdateReceiverType")
 	}
 	bot.updateReceiver = &updateReceiver
 

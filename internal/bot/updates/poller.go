@@ -1,77 +1,94 @@
 package updates
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"referral-bot/internal/config"
 	"referral-bot/internal/types"
-	"sync"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
 type Poller struct {
-	bot     types.BotContext
-	running *bool
-	cancel  context.CancelFunc
-	mutex   *sync.RWMutex
-	config  *config.ReceiverConfig
+	*receiverBase
+	telegramUpdatesChannel tgbotapi.UpdatesChannel
 }
 
 func NewPoller(bot types.BotContext, config *config.ReceiverConfig) (*Poller, error) {
-	if bot == nil {
-		return nil, fmt.Errorf("api cannot be nil")
+	base, err := newReceiverBase(bot, config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create baseReceiver: %v", err)
 	}
 
-	running := false
+	if err := verifyPollerConfig(config); err != nil {
+		return nil, fmt.Errorf("wrong poller config: %v", err)
+	}
+
 	return &Poller{
-		bot:     bot,
-		running: &running,
-		cancel:  nil,
-		mutex:   &sync.RWMutex{},
-		config:  config,
+		receiverBase: base,
 	}, nil
+}
+
+func verifyPollerConfig(config *config.ReceiverConfig) error {
+	if config == nil {
+		return fmt.Errorf("config cannot be nil")
+	}
+
+	// TODO: ДОБАВИТЬ ПРОВЕРКУ OFFSET
+
+	// TODO: ДОБАВИТЬ ПРОВЕРКУ TIMEOUT
+
+	return nil
 }
 
 func (p *Poller) Start() error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	if *p.running {
-		return fmt.Errorf("poller is already running")
+	if err := p.setupReceiverBase(); err != nil {
+		return fmt.Errorf("failed to setup receiver base: %v", err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	p.cancel = cancel
-	*p.running = true
+	if err := p.setupTelegramUpdatesChannel(); err != nil {
+		return fmt.Errorf("failed to setup telegram poller: %v", err)
+	}
 
-	log.Printf("Starting poller")
+	go p.runPoller()
 
-	go p.run(ctx)
+	go p.processUpdatesFromBuffer()
+
+	log.Printf("Poller started")
+	return nil
+}
+
+func (p *Poller) setupTelegramUpdatesChannel() error {
+	updateConfig := tgbotapi.NewUpdate(p.config.Poller.Offset)
+	updateConfig.Timeout = p.config.Poller.Timeout
+	updateConfig.AllowedUpdates = p.config.AllowedUpdates
+
+	p.telegramUpdatesChannel = p.bot.GetAPI().GetUpdatesChan(updateConfig)
+
+	log.Printf("Telegram poller configured")
 
 	return nil
 }
 
-func (p *Poller) run(ctx context.Context) {
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
-	u.AllowedUpdates = p.config.AllowedUpdates
-
-	updates := p.bot.GetAPI().GetUpdatesChan(u)
-
+func (p *Poller) runPoller() {
+	log.Printf("Starting poller update forwarding...")
 	for {
 		select {
-		case update, ok := <-updates:
+		case update, ok := <-p.telegramUpdatesChannel:
 			if !ok {
-				log.Println("Update channel closed")
+				log.Println("Official poller channel closed")
 				return
 			}
 
-			go handleUpdate(p.bot, update)
+			if err := p.sendUpdateToBuffer(update); err != nil {
+				log.Printf("Send update failed")
+			}
 
-		case <-ctx.Done():
-			log.Println("Poller stopped by context")
+		case <-p.ctx.Done():
+			log.Println("Poller forwarding stopped by context")
 			return
 		}
 	}
@@ -81,24 +98,16 @@ func (p *Poller) Stop() error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	if !(*p.running) {
+	if !p.running {
 		return nil
 	}
 
-	if p.cancel != nil {
-		p.cancel()
+	if err := p.stopReceiverBase(); err != nil {
+		return fmt.Errorf("failed to stop receiver base: %v", err)
 	}
 
-	*p.running = false
-	log.Println("Poller stopped gracefully")
-
+	log.Println("Poller base stopped gracefully")
 	return nil
-}
-
-func (p *Poller) IsRunning() bool {
-	p.mutex.RLock()
-	defer p.mutex.RUnlock()
-	return *p.running
 }
 
 func (p *Poller) GetType() string {
