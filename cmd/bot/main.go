@@ -1,44 +1,55 @@
 package main
 
 import (
-	"log"
 	"os"
 	"os/signal"
 	"referral-bot/internal/bot"
 	"referral-bot/internal/config"
+	"referral-bot/internal/logger"
 	"referral-bot/internal/types"
 	"syscall"
+	"time"
 )
 
 func main() {
-	var err error
+	var log types.LoggerContext
+	log = logger.NewStdLogger()
+	startTime := time.Now()
 
-	log.Println("Чтение конфига...")
+	log.Info("Starting application...")
 
-	var conf *config.Config
-	conf, err = config.LoadConfig()
+	log.Info("Loading configuration...")
+	conf, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("Ошибка чтения конфига: %v", err)
+		log.Fatal("Failed to load configuration: %v", err)
 	}
+	log.Info("Configuration loaded")
 
-	log.Println("Создание бота...")
-
+	log.Info("Initializing bot...")
 	var mainBot types.BotContext
-	mainBot, err = bot.NewBot(&conf.Bot)
+	mainBot, err = bot.NewBot(&conf.Bot, log)
 	if err != nil {
-		log.Fatalf("Ошибка создания бота: %v", err)
+		log.Fatal("Failed to create bot: %v", err)
 	}
 
-	log.Printf("Авторизован как %s", mainBot.GetAPI().Self.UserName)
+	log = mainBot.GetLogger()
 
-	log.Println("Бот запущен и слушает сообщения...")
+	botUser := mainBot.GetAPI().Self
+	log.Info("Bot authorized: @%s (ID: %d)", botUser.UserName, botUser.ID)
 
+	log.Info("Starting update receiver...")
 	mainBot.StartReceiver()
+	log.Info("Receiver started")
+
+	startupTime := time.Since(startTime)
+	log.Info("Application started successfully (took %v)", startupTime.Round(time.Millisecond))
 
 	waitForShutdown(mainBot)
 }
 
 func waitForShutdown(bot types.BotContext) {
+	log := bot.GetLogger()
+
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan,
 		syscall.SIGINT,
@@ -46,13 +57,16 @@ func waitForShutdown(bot types.BotContext) {
 		syscall.SIGQUIT,
 	)
 
+	log.Info("Waiting for shutdown signal...")
+
 	sig := <-sigChan
-	log.Printf("Получен сигнал: %v", sig)
+	log.Info("Received signal: %v", sig)
+	log.Info("Initiating shutdown...")
 
 	if err := bot.StopReceiver(); err != nil {
-		log.Printf("Ошибка при остановке: %v", err)
+		log.Error("Error stopping receiver: %v", err)
 		os.Exit(1)
 	}
 
-	log.Println("Бот остановлен")
+	log.Info("Shutdown completed")
 }

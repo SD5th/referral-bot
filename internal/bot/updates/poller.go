@@ -2,7 +2,6 @@ package updates
 
 import (
 	"fmt"
-	"log"
 	"referral-bot/internal/config"
 	"referral-bot/internal/types"
 
@@ -57,7 +56,7 @@ func (p *Poller) Start() error {
 
 	go p.processUpdatesFromBuffer()
 
-	log.Printf("Poller started")
+	p.bot.GetLogger().Info("Poller started")
 	return nil
 }
 
@@ -68,27 +67,28 @@ func (p *Poller) setupTelegramUpdatesChannel() error {
 
 	p.telegramUpdatesChannel = p.bot.GetAPI().GetUpdatesChan(updateConfig)
 
-	log.Printf("Telegram poller configured")
+	p.bot.GetLogger().Info("Telegram poller configured")
 
 	return nil
 }
 
 func (p *Poller) runPoller() {
-	log.Printf("Starting poller update forwarding...")
+	log := p.bot.GetLogger()
+	log.Info("Starting poller update forwarding...")
 	for {
 		select {
 		case update, ok := <-p.telegramUpdatesChannel:
 			if !ok {
-				log.Println("Official poller channel closed")
+				log.Info("Official poller channel closed")
 				return
 			}
 
 			if err := p.sendUpdateToBuffer(update); err != nil {
-				log.Printf("Send update failed")
+				log.Warn("Send update failed")
 			}
 
 		case <-p.ctx.Done():
-			log.Println("Poller forwarding stopped by context")
+			log.Info("Poller forwarding stopped by context")
 			return
 		}
 	}
@@ -106,7 +106,7 @@ func (p *Poller) Stop() error {
 		return fmt.Errorf("failed to stop receiver base: %v", err)
 	}
 
-	log.Println("Poller base stopped gracefully")
+	p.bot.GetLogger().Info("Poller base stopped gracefully")
 	return nil
 }
 

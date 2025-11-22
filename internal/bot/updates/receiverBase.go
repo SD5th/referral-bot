@@ -3,7 +3,6 @@ package updates
 import (
 	"context"
 	"fmt"
-	"log"
 	"referral-bot/internal/config"
 	"referral-bot/internal/types"
 	"sync"
@@ -95,7 +94,7 @@ func (b *receiverBase) sendUpdateToBuffer(update tgbotapi.Update) error {
 
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("Recovery from sendUpdate panic: %v", r)
+			b.bot.GetLogger().Warn("Recovery from sendUpdate panic: %v", r)
 		}
 	}()
 
@@ -103,15 +102,15 @@ func (b *receiverBase) sendUpdateToBuffer(update tgbotapi.Update) error {
 	case b.updatesBuffer <- update:
 		return nil
 	default:
-		log.Printf("Update buffer full, waiting with timeout...")
+		b.bot.GetLogger().Warn("Update buffer full, waiting with timeout...")
 	}
 
 	select {
 	case b.updatesBuffer <- update:
-		log.Printf("Update %d sent to buffer after waiting", update.UpdateID)
+		b.bot.GetLogger().Info("Update %d sent to buffer after waiting", update.UpdateID)
 		return nil
 	case <-time.After(5 * time.Second):
-		log.Printf("Timeout sending update - buffer blocked for 5 seconds")
+		b.bot.GetLogger().Warn("Timeout sending update - buffer blocked for 5 seconds")
 		return fmt.Errorf("timeout sending update")
 	}
 }
@@ -119,7 +118,7 @@ func (b *receiverBase) sendUpdateToBuffer(update tgbotapi.Update) error {
 func (b *receiverBase) processUpdatesFromBuffer() {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("Recovered from panic in processUpdatesFromBuffer: %v", r)
+			b.bot.GetLogger().Warn("Recovered from panic in processUpdatesFromBuffer: %v", r)
 		}
 	}()
 
@@ -127,14 +126,14 @@ func (b *receiverBase) processUpdatesFromBuffer() {
 		select {
 		case update, ok := <-b.updatesBuffer:
 			if !ok {
-				log.Println("update buffer closed")
+				b.bot.GetLogger().Info("update buffer closed")
 				return
 			}
 
 			handleUpdate(b.bot, update)
 
 		case <-b.ctx.Done():
-			log.Println("update processing stopped by context")
+			b.bot.GetLogger().Info("update processing stopped by context")
 			return
 		}
 	}
@@ -156,7 +155,7 @@ func (b *receiverBase) stopReceiverBase() error {
 
 	b.running = false
 
-	log.Println("Receiver base stopped gracefully")
+	b.bot.GetLogger().Info("Receiver base stopped gracefully")
 	return nil
 }
 

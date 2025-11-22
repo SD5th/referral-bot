@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"referral-bot/internal/config"
 	"referral-bot/internal/types"
@@ -76,7 +75,7 @@ func (w *Webhook) Start() error {
 
 	go w.processUpdatesFromBuffer()
 
-	log.Printf("Webhook server started on %s:%s", w.config.Webhook.IP, w.config.Webhook.Port)
+	w.bot.GetLogger().Info("Webhook server started on %s:%s", w.config.Webhook.IP, w.config.Webhook.Port)
 
 	return nil
 }
@@ -95,7 +94,7 @@ func (w *Webhook) setupTelegramWebhook() error {
 		return fmt.Errorf("failed to set webhook: %v", err)
 	}
 
-	log.Printf("Telegram webhook configured to: %s", w.config.Webhook.URL)
+	w.bot.GetLogger().Info("Telegram webhook configured to: %s", w.config.Webhook.URL)
 	return nil
 }
 
@@ -127,7 +126,7 @@ func (w *Webhook) runServer() {
 		w.shutdownServer()
 	case err := <-serverErr:
 		if err != nil && err != http.ErrServerClosed {
-			log.Printf("Webhook server error: %v", err)
+			w.bot.GetLogger().Warn("Webhook server error: %v", err)
 		}
 	}
 }
@@ -140,13 +139,13 @@ func (w *Webhook) webhookHandler(writer http.ResponseWriter, request *http.Reque
 
 	var update tgbotapi.Update
 	if err := json.NewDecoder(request.Body).Decode(&update); err != nil {
-		log.Printf("Error decoding update: %v", err)
+		w.bot.GetLogger().Warn("Error decoding update: %v", err)
 		http.Error(writer, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	if err := w.sendUpdateToBuffer(update); err != nil {
-		log.Printf("Send update failed")
+		w.bot.GetLogger().Warn("Send update failed")
 	}
 
 	writer.WriteHeader(http.StatusOK)
@@ -167,9 +166,9 @@ func (w *Webhook) shutdownServer() {
 		defer cancel()
 
 		if err := w.server.Shutdown(ctx); err != nil {
-			log.Printf("Webhook server shutdown error: %v", err)
+			w.bot.GetLogger().Warn("Webhook server shutdown error: %v", err)
 		} else {
-			log.Printf("Webhook server stopped gracefully")
+			w.bot.GetLogger().Info("Webhook server stopped gracefully")
 		}
 	}
 }
@@ -185,14 +184,14 @@ func (w *Webhook) Stop() error {
 	w.shutdownServer()
 
 	if err := w.removeTelegramWebhook(); err != nil {
-		log.Printf("Warning: failed to remove telegram webhook: %v", err)
+		w.bot.GetLogger().Warn("Warning: failed to remove telegram webhook: %v", err)
 	}
 
 	if err := w.stopReceiverBase(); err != nil {
 		return fmt.Errorf("failed to stop receiver base: %v", err)
 	}
 
-	log.Println("Webhook stopped gracefully")
+	w.bot.GetLogger().Info("Webhook stopped gracefully")
 
 	return nil
 }
