@@ -19,8 +19,8 @@ type ReceiverConfig struct {
 }
 
 type WebhookConfig struct {
-	URL         string `json:"url"`
-	IP          string `json:"ip" default:"0.0.0.0"`
+	ServerIP    string `json:"server_ip"`
+	ListenIP    string `json:"listen_ip" default:"0.0.0.0"`
 	Port        string `json:"port" default:"8443"`
 	CertFile    string `json:"cert_file"`
 	KeyFile     string `json:"key_file"`

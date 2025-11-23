@@ -2,6 +2,8 @@ package updates
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -14,7 +16,8 @@ import (
 
 type Webhook struct {
 	*receiverBase
-	server *http.Server
+	webhookToken string
+	server       *http.Server
 }
 
 func NewWebhook(bot types.BotContext, config *config.ReceiverConfig) (*Webhook, error) {
@@ -30,6 +33,7 @@ func NewWebhook(bot types.BotContext, config *config.ReceiverConfig) (*Webhook, 
 	return &Webhook{
 		receiverBase: base,
 		server:       nil,
+		webhookToken: "",
 	}, nil
 }
 
@@ -38,8 +42,8 @@ func verifyWebhookConfig(config *config.ReceiverConfig) error {
 		return fmt.Errorf("config cannot be nil")
 	}
 
-	if config.Webhook.URL == "" {
-		return fmt.Errorf("webhook URL is required")
+	if config.Webhook.ServerIP == "" {
+		return fmt.Errorf("server IP is required")
 	}
 
 	// TODO: ДОБАВИТЬ ПРОВЕРКУ IP
@@ -63,53 +67,68 @@ func (w *Webhook) Start() error {
 		return fmt.Errorf("failed to setup receiver base: %v", err)
 	}
 
-	if err := w.setupTelegramWebhook(); err != nil {
-		return fmt.Errorf("failed to setup telegram webhook: %v", err)
+	if err := w.generateWebhookToken(); err != nil {
+		return fmt.Errorf("failed to generate webhook token: %v", err)
 	}
 
 	if err := w.setupServer(); err != nil {
 		return fmt.Errorf("failed to setup webhook server: %v", err)
 	}
 
+	if err := w.setupTelegramWebhook(); err != nil {
+		return fmt.Errorf("failed to setup telegram webhook: %v", err)
+	}
+
 	go w.runServer()
 
 	go w.processUpdatesFromBuffer()
 
-	w.bot.GetLogger().Info("Webhook server started on %s:%s", w.config.Webhook.IP, w.config.Webhook.Port)
+	w.bot.GetLogger().Info("Webhook server started on %s:%s", w.config.Webhook.ServerIP, w.config.Webhook.Port)
+
+	return nil
+}
+
+func (w *Webhook) generateWebhookToken() error {
+	bytes := make([]byte, 24)
+	if _, err := rand.Read(bytes); err != nil {
+		return fmt.Errorf("failed to generate random bytes: %v", err)
+	}
+
+	w.webhookToken = base64.URLEncoding.EncodeToString(bytes)
+
+	return nil
+}
+
+func (w *Webhook) setupServer() error {
+	mux := http.NewServeMux()
+	webhookPath := "/webhook/" + w.webhookToken
+	mux.HandleFunc(webhookPath, w.webhookHandler)
+
+	w.server = &http.Server{
+		Addr:         w.config.Webhook.ServerIP + ":" + w.config.Webhook.Port,
+		Handler:      mux,
+		ReadTimeout:  time.Duration(w.config.Webhook.ReadTimeout) * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
 
 	return nil
 }
 
 func (w *Webhook) setupTelegramWebhook() error {
-	webhookConfig, err := tgbotapi.NewWebhook(w.config.Webhook.URL)
+	webhookURL := "https://" + w.config.Webhook.ServerIP + "/webhook/" + w.webhookToken
+	webhookConfig, err := tgbotapi.NewWebhookWithCert(webhookURL, tgbotapi.FilePath(w.config.Webhook.CertFile))
 	if err != nil {
 		return fmt.Errorf("failed to create webhook: %v", err)
 	}
 
 	webhookConfig.AllowedUpdates = w.config.AllowedUpdates
-	webhookConfig.Certificate = tgbotapi.FilePath(w.config.Webhook.CertFile)
 
 	_, err = w.bot.GetAPI().Request(webhookConfig)
 	if err != nil {
 		return fmt.Errorf("failed to set webhook: %v", err)
 	}
 
-	w.bot.GetLogger().Info("Telegram webhook configured to: %s", w.config.Webhook.URL)
-	return nil
-}
-
-func (w *Webhook) setupServer() error {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/webhook", w.webhookHandler)
-	mux.HandleFunc("/health", w.healthHandler)
-
-	w.server = &http.Server{
-		Addr:         w.config.Webhook.IP + ":" + w.config.Webhook.Port,
-		Handler:      mux,
-		ReadTimeout:  time.Duration(w.config.Webhook.ReadTimeout) * time.Second,
-		WriteTimeout: 10 * time.Second,
-	}
-
+	w.bot.GetLogger().Info("Telegram webhook configured to: %s", webhookURL)
 	return nil
 }
 
@@ -149,15 +168,6 @@ func (w *Webhook) webhookHandler(writer http.ResponseWriter, request *http.Reque
 	}
 
 	writer.WriteHeader(http.StatusOK)
-}
-
-func (w *Webhook) healthHandler(writer http.ResponseWriter, request *http.Request) {
-	writer.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(writer).Encode(map[string]interface{}{
-		"status":    "healthy",
-		"timestamp": time.Now().UTC(),
-		"receiver":  "webhook",
-	})
 }
 
 func (w *Webhook) shutdownServer() {
