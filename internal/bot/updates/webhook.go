@@ -115,7 +115,7 @@ func (w *Webhook) setupServer() error {
 }
 
 func (w *Webhook) setupTelegramWebhook() error {
-	webhookURL := "https://" + w.config.Webhook.ServerIP + "/webhook/" + w.webhookToken
+	webhookURL := "https://" + w.config.Webhook.ServerIP + ":" + w.config.Webhook.Port + "/webhook/" + w.webhookToken
 	webhookConfig, err := tgbotapi.NewWebhookWithCert(webhookURL, tgbotapi.FilePath(w.config.Webhook.CertFile))
 	if err != nil {
 		return fmt.Errorf("failed to create webhook: %v", err)
