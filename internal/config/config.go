@@ -1,13 +1,13 @@
 package config
 
 type Config struct {
-	Bot BotConfig `json:"bot"`
+	BotAPI   BotAPIConfig   `json:"bot_api"`
+	Receiver ReceiverConfig `json:"receiver"`
 }
 
-type BotConfig struct {
-	Debug    bool           `json:"debug"`
-	Token    string         `json:"token"`
-	Receiver ReceiverConfig `json:"receiver"`
+type BotAPIConfig struct {
+	Debug bool   `json:"debug"`
+	Token string `json:"token"`
 }
 
 type ReceiverConfig struct {

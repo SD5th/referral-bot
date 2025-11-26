@@ -1,9 +1,9 @@
-package updates
+package receivers
 
 import (
 	"fmt"
 	"referral-bot/internal/config"
-	"referral-bot/internal/types"
+	"referral-bot/internal/core"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -13,12 +13,13 @@ type Poller struct {
 	telegramUpdatesChannel tgbotapi.UpdatesChannel
 }
 
-func NewPoller(bot types.BotContext, config *config.ReceiverConfig) (*Poller, error) {
-	base, err := newReceiverBase(bot, config)
+func NewPoller(core *core.Core) (*Poller, error) {
+	base, err := newReceiverBase(core)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create baseReceiver: %v", err)
 	}
 
+	config := &core.GetConfig().Receiver
 	if err := verifyPollerConfig(config); err != nil {
 		return nil, fmt.Errorf("wrong poller config: %v", err)
 	}
@@ -44,6 +45,10 @@ func (p *Poller) Start() error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
+	if p.updateHandler == nil {
+		return fmt.Errorf("update handler cannot be nil")
+	}
+
 	if err := p.setupReceiverBase(); err != nil {
 		return fmt.Errorf("failed to setup receiver base: %v", err)
 	}
@@ -56,24 +61,25 @@ func (p *Poller) Start() error {
 
 	go p.processUpdatesFromBuffer()
 
-	p.bot.GetLogger().Info("Poller started")
+	p.core.GetLogger().Info("Poller started")
 	return nil
 }
 
 func (p *Poller) setupTelegramUpdatesChannel() error {
-	updateConfig := tgbotapi.NewUpdate(p.config.Poller.Offset)
-	updateConfig.Timeout = p.config.Poller.Timeout
-	updateConfig.AllowedUpdates = p.config.AllowedUpdates
+	config := p.core.GetConfig().Receiver
+	updateConfig := tgbotapi.NewUpdate(config.Poller.Offset)
+	updateConfig.Timeout = config.Poller.Timeout
+	updateConfig.AllowedUpdates = config.AllowedUpdates
 
-	p.telegramUpdatesChannel = p.bot.GetAPI().GetUpdatesChan(updateConfig)
+	p.telegramUpdatesChannel = p.core.GetBotAPI().GetUpdatesChan(updateConfig)
 
-	p.bot.GetLogger().Info("Telegram poller configured")
+	p.core.GetLogger().Info("Telegram poller configured")
 
 	return nil
 }
 
 func (p *Poller) runPoller() {
-	log := p.bot.GetLogger()
+	log := p.core.GetLogger()
 	log.Info("Starting poller update forwarding...")
 	for {
 		select {
@@ -106,7 +112,7 @@ func (p *Poller) Stop() error {
 		return fmt.Errorf("failed to stop receiver base: %v", err)
 	}
 
-	p.bot.GetLogger().Info("Poller base stopped gracefully")
+	p.core.GetLogger().Info("Poller base stopped gracefully")
 	return nil
 }
 

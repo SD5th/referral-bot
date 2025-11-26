@@ -1,10 +1,11 @@
-package updates
+package receivers
 
 import (
 	"context"
 	"fmt"
 	"referral-bot/internal/config"
-	"referral-bot/internal/types"
+	"referral-bot/internal/core"
+	"referral-bot/internal/interfaces"
 	"sync"
 	"time"
 
@@ -12,30 +13,46 @@ import (
 )
 
 type receiverBase struct {
-	bot           types.BotContext
+	core          *core.Core
+	updateHandler interfaces.UpdateHandlerInterface
+
 	running       bool
 	ctx           context.Context
 	cancel        context.CancelFunc
 	mutex         sync.RWMutex
 	updatesBuffer chan tgbotapi.Update
-	config        *config.ReceiverConfig
 }
 
-func newReceiverBase(bot types.BotContext, config *config.ReceiverConfig) (*receiverBase, error) {
-	if bot == nil {
-		return nil, fmt.Errorf("api cannot be nil")
+func newReceiverBase(core *core.Core) (*receiverBase, error) {
+	if core == nil {
+		return nil, fmt.Errorf("core cannot be nil")
 	}
+
+	config := &core.GetConfig().Receiver
 	if err := verifyReceiverBaseConfig(config); err != nil {
 		return nil, fmt.Errorf("wrong receiver config: %v", err)
 	}
 
 	return &receiverBase{
-		bot:           bot,
+		core:          core,
+		updateHandler: nil,
+
 		running:       false,
+		ctx:           nil,
+		cancel:        nil,
 		mutex:         sync.RWMutex{},
 		updatesBuffer: nil,
-		config:        config,
 	}, nil
+}
+
+func (b *receiverBase) SetUpdateHandler(updateHandler interfaces.UpdateHandlerInterface) error {
+	if updateHandler == nil {
+		return fmt.Errorf("update handler cannot be nil")
+	}
+
+	b.updateHandler = updateHandler
+
+	return nil
 }
 
 func verifyReceiverBaseConfig(config *config.ReceiverConfig) error {
@@ -82,19 +99,23 @@ func (b *receiverBase) openUpdatesBuffer() error {
 	if b.updatesBuffer != nil {
 		return fmt.Errorf("update buffer is already opened")
 	}
-	b.updatesBuffer = make(chan tgbotapi.Update, b.config.BufferSize)
+
+	bufferSize := b.core.GetConfig().Receiver.BufferSize
+	b.updatesBuffer = make(chan tgbotapi.Update, bufferSize)
 
 	return nil
 }
 
 func (b *receiverBase) sendUpdateToBuffer(update tgbotapi.Update) error {
 	if b.updatesBuffer == nil {
-		return fmt.Errorf("update channel is not initialized")
+		return fmt.Errorf("update buffer channel is not initialized")
 	}
+
+	log := b.core.GetLogger()
 
 	defer func() {
 		if r := recover(); r != nil {
-			b.bot.GetLogger().Warn("Recovery from sendUpdate panic: %v", r)
+			log.Warn("Recovery from sendUpdate panic: %v", r)
 		}
 	}()
 
@@ -102,23 +123,28 @@ func (b *receiverBase) sendUpdateToBuffer(update tgbotapi.Update) error {
 	case b.updatesBuffer <- update:
 		return nil
 	default:
-		b.bot.GetLogger().Warn("Update buffer full, waiting with timeout...")
+		log.Warn("Update buffer full, waiting with timeout...")
 	}
 
 	select {
 	case b.updatesBuffer <- update:
-		b.bot.GetLogger().Info("Update %d sent to buffer after waiting", update.UpdateID)
+		log.Info("Update %d sent to buffer after waiting", update.UpdateID)
 		return nil
 	case <-time.After(5 * time.Second):
-		b.bot.GetLogger().Warn("Timeout sending update - buffer blocked for 5 seconds")
+		log.Warn("Timeout sending update - buffer blocked for 5 seconds")
 		return fmt.Errorf("timeout sending update")
 	}
 }
 
 func (b *receiverBase) processUpdatesFromBuffer() {
+	log := b.core.GetLogger()
+	if b.updateHandler == nil {
+		log.Fatal("Update handler cannot be nil")
+	}
+
 	defer func() {
 		if r := recover(); r != nil {
-			b.bot.GetLogger().Warn("Recovered from panic in processUpdatesFromBuffer: %v", r)
+			log.Warn("Recovered from panic in processUpdatesFromBuffer: %v", r)
 		}
 	}()
 
@@ -126,14 +152,14 @@ func (b *receiverBase) processUpdatesFromBuffer() {
 		select {
 		case update, ok := <-b.updatesBuffer:
 			if !ok {
-				b.bot.GetLogger().Info("update buffer closed")
+				log.Info("update buffer closed")
 				return
 			}
 
-			handleUpdate(b.bot, update)
+			b.updateHandler.HandleUpdate(update)
 
 		case <-b.ctx.Done():
-			b.bot.GetLogger().Info("update processing stopped by context")
+			log.Info("update processing stopped by context")
 			return
 		}
 	}
@@ -155,7 +181,7 @@ func (b *receiverBase) stopReceiverBase() error {
 
 	b.running = false
 
-	b.bot.GetLogger().Info("Receiver base stopped gracefully")
+	b.core.GetLogger().Info("Receiver base stopped gracefully")
 	return nil
 }
 

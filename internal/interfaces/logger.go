@@ -1,6 +1,6 @@
-package types
+package interfaces
 
-type LoggerContext interface {
+type LoggerInterface interface {
 	Info(format string, v ...any)
 	Error(format string, v ...any)
 	Warn(format string, v ...any)

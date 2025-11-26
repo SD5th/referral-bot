@@ -3,7 +3,7 @@ package config
 import "fmt"
 
 func validateConfig(config *Config) error {
-	if config.Bot.Token == "" {
+	if config.BotAPI.Token == "" {
 		return fmt.Errorf("токен не указан в config.json")
 	}
 	return nil

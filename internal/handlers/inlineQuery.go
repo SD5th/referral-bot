@@ -1,9 +1,7 @@
 package handlers
 
 import (
-	"referral-bot/internal/types"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func HandleInlineQuery(bot types.BotContext, inlineQuery *tgbotapi.InlineQuery) {}
+func (u *UpdateHandler) handleInlineQuery(inlineQuery *tgbotapi.InlineQuery) {}

@@ -1,4 +1,4 @@
-package updates
+package receivers
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"referral-bot/internal/config"
-	"referral-bot/internal/types"
+	"referral-bot/internal/core"
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -16,16 +16,17 @@ import (
 
 type Webhook struct {
 	*receiverBase
-	webhookToken string
 	server       *http.Server
+	webhookToken string
 }
 
-func NewWebhook(bot types.BotContext, config *config.ReceiverConfig) (*Webhook, error) {
-	base, err := newReceiverBase(bot, config)
+func NewWebhook(core *core.Core) (*Webhook, error) {
+	base, err := newReceiverBase(core)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create baseReceiver: %v", err)
 	}
 
+	config := &core.GetConfig().Receiver
 	if err := verifyWebhookConfig(config); err != nil {
 		return nil, fmt.Errorf("wrong webhook config: %v", err)
 	}
@@ -44,9 +45,9 @@ func verifyWebhookConfig(config *config.ReceiverConfig) error {
 
 	if config.Webhook.ServerIP == "" {
 		return fmt.Errorf("server IP is required")
-	}
+	} // TODO: ДОБАВИТЬ ПРОВЕРКУ ЧТО ЭТО ВООБЩЕ НАШ АЙПИ
 
-	// TODO: ДОБАВИТЬ ПРОВЕРКУ IP
+	// TODO: ДОБАВИТЬ ПРОВЕРКУ RangeIP
 
 	// TODO: ДОБАВИТЬ ПРОВЕРКУ Port
 
@@ -62,6 +63,10 @@ func verifyWebhookConfig(config *config.ReceiverConfig) error {
 func (w *Webhook) Start() error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
+
+	if w.updateHandler == nil {
+		return fmt.Errorf("update handler cannot be nil")
+	}
 
 	if err := w.setupReceiverBase(); err != nil {
 		return fmt.Errorf("failed to setup receiver base: %v", err)
@@ -83,7 +88,9 @@ func (w *Webhook) Start() error {
 
 	go w.processUpdatesFromBuffer()
 
-	w.bot.GetLogger().Info("Webhook server started on %s:%s", w.config.Webhook.ServerIP, w.config.Webhook.Port)
+	config := w.core.GetConfig().Receiver.Webhook
+
+	w.core.GetLogger().Info("Webhook server started on %s:%s", config.ServerIP, config.Port)
 
 	return nil
 }
@@ -104,10 +111,12 @@ func (w *Webhook) setupServer() error {
 	webhookPath := "/webhook/" + w.webhookToken
 	mux.HandleFunc(webhookPath, w.webhookHandler)
 
+	config := w.core.GetConfig().Receiver.Webhook
+
 	w.server = &http.Server{
-		Addr:         w.config.Webhook.ServerIP + ":" + w.config.Webhook.Port,
+		Addr:         config.ListenIP + ":" + config.Port,
 		Handler:      mux,
-		ReadTimeout:  time.Duration(w.config.Webhook.ReadTimeout) * time.Second,
+		ReadTimeout:  time.Duration(config.ReadTimeout) * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
 
@@ -115,28 +124,32 @@ func (w *Webhook) setupServer() error {
 }
 
 func (w *Webhook) setupTelegramWebhook() error {
-	webhookURL := "https://" + w.config.Webhook.ServerIP + ":" + w.config.Webhook.Port + "/webhook/" + w.webhookToken
-	webhookConfig, err := tgbotapi.NewWebhookWithCert(webhookURL, tgbotapi.FilePath(w.config.Webhook.CertFile))
+	config := w.core.GetConfig().Receiver.Webhook
+
+	webhookURL := "https://" + config.ServerIP + ":" + config.Port + "/webhook/" + w.webhookToken
+	webhookConfig, err := tgbotapi.NewWebhookWithCert(webhookURL, tgbotapi.FilePath(config.CertFile))
 	if err != nil {
 		return fmt.Errorf("failed to create webhook: %v", err)
 	}
 
-	webhookConfig.AllowedUpdates = w.config.AllowedUpdates
+	webhookConfig.AllowedUpdates = w.core.GetConfig().Receiver.AllowedUpdates
 
-	_, err = w.bot.GetAPI().Request(webhookConfig)
+	_, err = w.core.GetBotAPI().Request(webhookConfig)
 	if err != nil {
 		return fmt.Errorf("failed to set webhook: %v", err)
 	}
 
-	w.bot.GetLogger().Info("Telegram webhook configured to: %s", webhookURL)
+	w.core.GetLogger().Info("Telegram webhook configured to: %s", webhookURL)
 	return nil
 }
 
 func (w *Webhook) runServer() {
 	serverErr := make(chan error, 1)
 
+	config := w.core.GetConfig().Receiver.Webhook
+
 	go func() {
-		err := w.server.ListenAndServeTLS(w.config.Webhook.CertFile, w.config.Webhook.KeyFile)
+		err := w.server.ListenAndServeTLS(config.CertFile, config.KeyFile)
 		serverErr <- err
 	}()
 
@@ -145,12 +158,14 @@ func (w *Webhook) runServer() {
 		w.shutdownServer()
 	case err := <-serverErr:
 		if err != nil && err != http.ErrServerClosed {
-			w.bot.GetLogger().Warn("Webhook server error: %v", err)
+			w.core.GetLogger().Warn("Webhook server error: %v", err)
 		}
 	}
 }
 
 func (w *Webhook) webhookHandler(writer http.ResponseWriter, request *http.Request) {
+	log := w.core.GetLogger()
+
 	if request.Method != http.MethodPost {
 		http.Error(writer, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -158,32 +173,35 @@ func (w *Webhook) webhookHandler(writer http.ResponseWriter, request *http.Reque
 
 	var update tgbotapi.Update
 	if err := json.NewDecoder(request.Body).Decode(&update); err != nil {
-		w.bot.GetLogger().Warn("Error decoding update: %v", err)
+		log.Warn("Error decoding update: %v", err)
 		http.Error(writer, "Bad request", http.StatusBadRequest)
 		return
 	}
 
 	if err := w.sendUpdateToBuffer(update); err != nil {
-		w.bot.GetLogger().Warn("Send update failed")
+		log.Warn("Send update failed")
 	}
 
 	writer.WriteHeader(http.StatusOK)
 }
 
 func (w *Webhook) shutdownServer() {
+	log := w.core.GetLogger()
 	if w.server != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
 		if err := w.server.Shutdown(ctx); err != nil {
-			w.bot.GetLogger().Warn("Webhook server shutdown error: %v", err)
+			log.Warn("Webhook server shutdown error: %v", err)
 		} else {
-			w.bot.GetLogger().Info("Webhook server stopped gracefully")
+			log.Info("Webhook server stopped gracefully")
 		}
 	}
 }
 
 func (w *Webhook) Stop() error {
+	log := w.core.GetLogger()
+
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -194,20 +212,20 @@ func (w *Webhook) Stop() error {
 	w.shutdownServer()
 
 	if err := w.removeTelegramWebhook(); err != nil {
-		w.bot.GetLogger().Warn("Warning: failed to remove telegram webhook: %v", err)
+		log.Warn("Warning: failed to remove telegram webhook: %v", err)
 	}
 
 	if err := w.stopReceiverBase(); err != nil {
 		return fmt.Errorf("failed to stop receiver base: %v", err)
 	}
 
-	w.bot.GetLogger().Info("Webhook stopped gracefully")
+	log.Info("Webhook stopped gracefully")
 
 	return nil
 }
 
 func (w *Webhook) removeTelegramWebhook() error {
-	_, err := w.bot.GetAPI().Request(tgbotapi.DeleteWebhookConfig{
+	_, err := w.core.GetBotAPI().Request(tgbotapi.DeleteWebhookConfig{
 		DropPendingUpdates: false,
 	})
 	return err
