@@ -1,1 +1,4 @@
 privateConfig.json
+cert.pem
+private.key
+data/
