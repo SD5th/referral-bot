@@ -54,8 +54,9 @@ func main() {
 	userService := services.NewUserService(core, activeChannelRepository, userRepository, inviteLinkRepository, channelActivityRepository)
 	adminService := services.NewAdminService(core, activeChannelRepository, userRepository, adminRepository, inviteLinkRepository, channelActivityRepository)
 	tgUtilsService := services.NewTGUtilsService(core)
+	channelActivityService := services.NewChannelActivityService(core, activeChannelRepository, userRepository, adminRepository, inviteLinkRepository, channelActivityRepository)
 
-	updateHandler, err := handlers.NewUpdateHandler(core, activeChannelService, userService, adminService, tgUtilsService, inviteLinkService)
+	updateHandler, err := handlers.NewUpdateHandler(core, activeChannelService, userService, adminService, tgUtilsService, inviteLinkService, channelActivityService)
 	if err != nil {
 		log.Fatal("Failed to create update handler: %v", err)
 	}

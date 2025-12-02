@@ -21,39 +21,53 @@ func NewUserRepository(core *core.Core, db *Database) *UserRepository {
 
 func (r *UserRepository) GetByID(id int64) (*types.User, error) {
 	query := `
-	SELECT id, telegram_id, first_name, last_name, username, member_status, invited_by_user_id, invited_by_link_id, invite_link_id, created_at, updated_at
-		FROM users WHERE id = ?
+		SELECT 
+			id, 
+			telegram_id, first_name, last_name, username, member_status, 
+			invited_by_user_id, invited_by_link_id, 
+			invite_link_id, 
+			created_at, updated_at
+		FROM users 
+		WHERE 
+			id = ?
 		`
 
-	user := new(types.User)
+	var foundUser types.User
 	err := r.db.SqlDB.QueryRow(query, id).Scan(
-		&user.ID,
-		&user.TelegramID,
-		&user.FirstName,
-		&user.LastName,
-		&user.Username,
-		&user.MemberStatus,
-		&user.InvitedByUserID,
-		&user.InvitedByLinkID,
-		&user.InviteLinkID,
-		&user.CreatedAt,
-		&user.UpdatedAt,
+		&foundUser.ID,
+		&foundUser.TelegramID,
+		&foundUser.FirstName,
+		&foundUser.LastName,
+		&foundUser.Username,
+		&foundUser.MemberStatus,
+		&foundUser.InvitedByUserID,
+		&foundUser.InvitedByLinkID,
+		&foundUser.InviteLinkID,
+		&foundUser.CreatedAt,
+		&foundUser.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user by id")
+		return nil, err
 	}
 
-	return user, nil
+	return &foundUser, nil
 }
 
 func (r *UserRepository) GetByTelegramID(telegramID int64) (*types.User, error) {
 	query := `
-	SELECT id, telegram_id, first_name, last_name, username, member_status, invited_by_user_id, invited_by_link_id, invite_link_id, created_at, updated_at
-		FROM users WHERE telegram_id = ?
+		SELECT 
+			id, 
+			telegram_id, first_name, last_name, username, member_status, 
+			invited_by_user_id, invited_by_link_id, 
+			invite_link_id, 
+			created_at, updated_at
+		FROM users 
+		WHERE 
+			telegram_id = ?
 		`
 
 	user := new(types.User)
@@ -75,7 +89,7 @@ func (r *UserRepository) GetByTelegramID(telegramID int64) (*types.User, error) 
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get user by telegram id")
+		return nil, err
 	}
 
 	return user, nil
@@ -87,33 +101,43 @@ func (r *UserRepository) Insert(user *types.User) (*types.User, error) {
 	}
 
 	query := `
-	INSERT INTO users 
-	(telegram_id, first_name, last_name, username, member_status, invited_by_user_id, invited_by_link_id, invite_link_id, created_at, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		INSERT INTO users 
+			(telegram_id, first_name, last_name, username, member_status, 
+			invited_by_user_id, invited_by_link_id, 
+			invite_link_id,
+			created_at, updated_at)
+		VALUES (
+			?, ?, ?, ?, ?, 
+			?, ?, 
+			?,
+			CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+		)
+		RETURNING 
+			id, 
+			telegram_id, first_name, last_name, username, member_status, 
+			invited_by_user_id, invited_by_link_id, 
+			invite_link_id, 
+			created_at, updated_at
 	`
 
-	result, err := r.db.SqlDB.Exec(
-		query,
-		user.TelegramID,
-		user.FirstName,
-		user.LastName,
-		user.Username,
-		user.MemberStatus,
-		user.InvitedByUserID,
-		user.InvitedByLinkID,
+	var insertedUser types.User
+	err := r.db.SqlDB.QueryRow(query,
+		user.TelegramID, user.FirstName, user.LastName, user.Username, user.MemberStatus,
+		user.InvitedByUserID, user.InvitedByLinkID,
 		user.InviteLinkID,
+	).Scan(
+		&insertedUser.ID,
+		&insertedUser.TelegramID, &insertedUser.FirstName, &insertedUser.LastName, &insertedUser.Username, &insertedUser.MemberStatus,
+		&insertedUser.InvitedByUserID, &insertedUser.InvitedByLinkID,
+		&insertedUser.InviteLinkID,
+		&insertedUser.CreatedAt, &insertedUser.UpdatedAt,
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to insert user: %w", err)
+		return nil, err
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get last insert ID: %w", err)
-	}
-
-	return r.GetByID(id)
+	return &insertedUser, nil
 }
 
 func (r *UserRepository) UpdateBasedOnTelegramID(user *types.User) (*types.User, error) {
@@ -121,46 +145,46 @@ func (r *UserRepository) UpdateBasedOnTelegramID(user *types.User) (*types.User,
 		return nil, fmt.Errorf("user is nil")
 	}
 
-	dbUser, err := r.GetByTelegramID(user.TelegramID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user by telegram ID: %w", err)
-	}
-
-	if dbUser == nil {
-		return nil, fmt.Errorf("user with telegram id: %d doesn's exist", user.TelegramID)
-	}
-
 	query := `
 		UPDATE users 
-		SET first_name = ?, last_name = ?, username = ?, member_status = ?, invited_by_user_id = ?, invited_by_link_id = ?, invite_link_id = ?, updated_at = CURRENT_TIMESTAMP
-		WHERE id = ?
+		SET 
+			first_name = ?, last_name = ?, username = ?, member_status = ?, 
+			invited_by_user_id = ?, invited_by_link_id = ?, 
+			invite_link_id = ?, 
+			updated_at = CURRENT_TIMESTAMP
+		WHERE 
+			telegram_id = ?
+		RETURNING 
+			id, 
+			telegram_id, first_name, last_name, username, member_status, 
+			invited_by_user_id, invited_by_link_id, 
+			invite_link_id, 
+			created_at, updated_at
 	`
 
-	result, err := r.db.SqlDB.Exec(
-		query,
-		user.FirstName,
-		user.LastName,
-		user.Username,
-		user.MemberStatus,
-		user.InvitedByUserID,
-		user.InvitedByLinkID,
+	var updatedUser types.User
+	err := r.db.SqlDB.QueryRow(query,
+		user.FirstName, user.LastName, user.Username, user.MemberStatus,
+		user.InvitedByUserID, user.InvitedByLinkID,
 		user.InviteLinkID,
-		dbUser.ID,
+
+		user.TelegramID,
+	).Scan(
+		&updatedUser.ID,
+		&updatedUser.TelegramID, &updatedUser.FirstName, &updatedUser.LastName, &updatedUser.Username, &updatedUser.MemberStatus,
+		&updatedUser.InvitedByUserID, &updatedUser.InvitedByLinkID,
+		&updatedUser.InviteLinkID,
+		&updatedUser.CreatedAt, &updatedUser.UpdatedAt,
 	)
 
+	if err == sql.ErrNoRows {
+		return nil, sql.ErrNoRows
+	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to update user: %w", err)
+		return nil, err
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get rows affected: %w", err)
-	}
-	if rowsAffected == 0 {
-		return nil, fmt.Errorf("user with ID %d not found", dbUser.ID)
-	}
-
-	return r.GetByID(dbUser.ID)
+	return &updatedUser, nil
 }
 
 func (r *UserRepository) UpsertBasedOnTelegramID(user *types.User) (*types.User, error) {
@@ -168,14 +192,14 @@ func (r *UserRepository) UpsertBasedOnTelegramID(user *types.User) (*types.User,
 		return nil, fmt.Errorf("user is nil")
 	}
 
-	dbUser, err := r.GetByTelegramID(user.TelegramID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user by telegram ID: %w", err)
+	updatedUser, err := r.UpdateBasedOnTelegramID(user)
+	if err == nil {
+		return updatedUser, nil
 	}
 
-	if dbUser == nil {
+	if err == sql.ErrNoRows {
 		return r.Insert(user)
 	}
 
-	return r.UpdateBasedOnTelegramID(user)
+	return nil, err
 }

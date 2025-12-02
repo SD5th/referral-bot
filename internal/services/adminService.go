@@ -9,7 +9,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-type Admin struct {
+type AdminService struct {
 	core *core.Core
 
 	activeChannelRepository   interfaces.ActiveChannelRepository
@@ -26,8 +26,8 @@ func NewAdminService(
 	adminRepository interfaces.AdminRepository,
 	inviteLinkRepository interfaces.InviteLinkRepository,
 	channelActivityRepository interfaces.ChannelActivityRepository,
-) *Admin {
-	return &Admin{
+) *AdminService {
+	return &AdminService{
 		core:                      core,
 		activeChannelRepository:   activeChannelRepository,
 		userRepository:            userRepository,
@@ -37,7 +37,7 @@ func NewAdminService(
 	}
 }
 
-func (s *Admin) Register(tgUser *tgbotapi.User) (*types.Admin, error) {
+func (s *AdminService) Register(tgUser *tgbotapi.User) (*types.Admin, error) {
 	err, _, log, _ := s.core.GetAll()
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func (s *Admin) Register(tgUser *tgbotapi.User) (*types.Admin, error) {
 
 	return insertedAdmin, nil
 }
-func (s *Admin) IsAdmin(telegramID int64) (bool, error) {
+func (s *AdminService) IsAdmin(telegramID int64) (bool, error) {
 	err, _, _, _ := s.core.GetAll()
 	if err != nil {
 		return false, err

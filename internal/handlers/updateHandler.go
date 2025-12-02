@@ -14,11 +14,12 @@ type UpdateHandler struct {
 	chatMemberHandler   *chatMemberHandler
 	myChatMemberHandler *myChatMemberHandler
 
-	tgUtilsService       interfaces.TGUtilsService
-	activeChannelService interfaces.ActiveChannelService
-	userService          interfaces.UserService
-	adminService         interfaces.AdminService
-	inviteLinkService    interfaces.InviteLinkService
+	tgUtilsService         interfaces.TGUtilsService
+	activeChannelService   interfaces.ActiveChannelService
+	userService            interfaces.UserService
+	adminService           interfaces.AdminService
+	inviteLinkService      interfaces.InviteLinkService
+	channelActivityService interfaces.ChannelActivityService
 }
 
 func NewUpdateHandler(
@@ -28,32 +29,36 @@ func NewUpdateHandler(
 	adminService interfaces.AdminService,
 	tgUtilsService interfaces.TGUtilsService,
 	inviteLinkService interfaces.InviteLinkService,
+	channelActivityService interfaces.ChannelActivityService,
 
 ) (*UpdateHandler, error) {
 	return &UpdateHandler{
 		core: core,
 		messageHandler: &messageHandler{
-			core:                 core,
-			activeChannelService: activeChannelService,
-			tgUtilsService:       tgUtilsService,
-			userService:          userService,
-			adminService:         adminService,
-			inviteLinkService:    inviteLinkService,
+			core:                   core,
+			activeChannelService:   activeChannelService,
+			tgUtilsService:         tgUtilsService,
+			userService:            userService,
+			adminService:           adminService,
+			inviteLinkService:      inviteLinkService,
+			channelActivityService: channelActivityService,
 		},
 		chatMemberHandler: &chatMemberHandler{
-			core:                 core,
-			activeChannelService: activeChannelService,
-			userService:          userService,
-			adminService:         adminService,
-			inviteLinkService:    inviteLinkService,
+			core:                   core,
+			activeChannelService:   activeChannelService,
+			userService:            userService,
+			adminService:           adminService,
+			inviteLinkService:      inviteLinkService,
+			channelActivityService: channelActivityService,
 		},
 		myChatMemberHandler: &myChatMemberHandler{
-			core:                 core,
-			activeChannelService: activeChannelService,
-			tgUtilsService:       tgUtilsService,
-			userService:          userService,
-			adminService:         adminService,
-			inviteLinkService:    inviteLinkService,
+			core:                   core,
+			activeChannelService:   activeChannelService,
+			tgUtilsService:         tgUtilsService,
+			userService:            userService,
+			adminService:           adminService,
+			inviteLinkService:      inviteLinkService,
+			channelActivityService: channelActivityService,
 		},
 	}, nil
 }

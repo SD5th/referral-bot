@@ -33,8 +33,8 @@ func NewDatabase(core *core.Core, dsn string) (*Database, error) {
 
 	_, err = database.SqlDB.Exec(`
 		PRAGMA foreign_keys = ON;
-		PRAGMA journal_mode = WAL;
 	`)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to set pragmas: %w", err)
 	}
@@ -54,11 +54,16 @@ func (db *Database) createTables() error {
 		`
 		CREATE TABLE IF NOT EXISTS active_channel (
 			id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+
 			telegram_id BIGINT NOT NULL UNIQUE,
+
 			type VARCHAR(10) NOT NULL CHECK (type IN ('private', 'group', 'supergroup', 'channel')),
+			
 			username VARCHAR(255),
 			title VARCHAR(255),
+			
 			invite_link VARCHAR(100),
+			
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 		)
@@ -67,16 +72,21 @@ func (db *Database) createTables() error {
 		`
 		CREATE TABLE IF NOT EXISTS users (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			
 			telegram_id BIGINT NOT NULL UNIQUE,
 			first_name VARCHAR(255) NOT NULL,
 			last_name VARCHAR(255),
 			username VARCHAR(255),
 			member_status VARCHAR(13) NOT NULL CHECK (member_status IN ('creator', 'administrator', 'member', 'restricted', 'left', 'kicked')),
+			
 			invited_by_user_id BIGINT,
 			invited_by_link_id BIGINT,
+			
 			invite_link_id BIGINT,
+			
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			
 			FOREIGN KEY (invited_by_user_id) REFERENCES users(id),
 			FOREIGN KEY (invited_by_link_id) REFERENCES invite_links(id)
 			)
@@ -85,10 +95,12 @@ func (db *Database) createTables() error {
 		`
 		CREATE TABLE IF NOT EXISTS admins (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			
 			telegram_id BIGINT NOT NULL UNIQUE,
 			first_name VARCHAR(255) NOT NULL,
 			last_name VARCHAR(255),
 			username VARCHAR(255),
+			
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 			)
@@ -97,12 +109,17 @@ func (db *Database) createTables() error {
 		`
 			CREATE TABLE IF NOT EXISTS invite_links (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				
 				requester_id INTEGER NOT NULL,
-				invite_link VARCHAR(100) NOT NULL UNIQUE,
+				
+				url VARCHAR(100) NOT NULL UNIQUE,
 				name VARCHAR(255) NOT NULL UNIQUE,
+				
 				unique_joins INTEGER DEFAULT 0,
+				
 				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 				updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+				
 				FOREIGN KEY (requester_id) REFERENCES users(id)
 			)
 		`
@@ -110,15 +127,25 @@ func (db *Database) createTables() error {
 		`
 			CREATE TABLE IF NOT EXISTS channel_activity (
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
-				user_id INTEGER NOT NULL,
-				invited_by_user_id INTEGER,
-				invited_by_link_id INTEGER,
+				channel_telegram_id INTEGER NOT NULL,
+				
+				user_telegram_id INTEGER NOT NULL,
+				user_first_name VARCHAR(255) NOT NULL,
+				user_last_name VARCHAR(255),
+				user_username VARCHAR(255),
+
+				inviter_telegram_id INTEGER,
+				inviter_first_name VARCHAR(255),
+				inviter_last_name VARCHAR(255),
+				inviter_username VARCHAR(255),
+
+				invite_link_url VARCHAR(100),
+				invite_link_name VARCHAR(255) NOT NULL,
+				
 				old_status VARCHAR(13) NOT NULL CHECK (old_status IN ('creator', 'administrator', 'member', 'restricted', 'left', 'kicked')),
 				new_status VARCHAR(13) NOT NULL CHECK (new_status IN ('creator', 'administrator', 'member', 'restricted', 'left', 'kicked')),
-				created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-				FOREIGN KEY (user_id) REFERENCES users(id),
-				FOREIGN KEY (invited_by_user_id) REFERENCES users(id),
-				FOREIGN KEY (invited_by_link_id) REFERENCES invite_links(id)
+				
+				created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 			)
 		`
 
@@ -137,6 +164,7 @@ func (db *Database) createTables() error {
 	if _, err := db.SqlDB.Exec(channelActivityTable); err != nil {
 		return fmt.Errorf("failed to create channelActivityTable: %w", err)
 	}
+
 	usersIndexes := []string{
 		"CREATE INDEX IF NOT EXISTS idx_users_telegram_id ON users(telegram_id)",
 	}
@@ -156,7 +184,7 @@ func (db *Database) createTables() error {
 		}
 	}
 
-	log.Info("All tables created successfully")
+	log.Info("All tables and indexes are created")
 	return nil
 }
 

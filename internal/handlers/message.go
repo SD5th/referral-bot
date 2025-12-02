@@ -14,11 +14,12 @@ import (
 type messageHandler struct {
 	core *core.Core
 
-	tgUtilsService       interfaces.TGUtilsService
-	adminService         interfaces.AdminService
-	activeChannelService interfaces.ActiveChannelService
-	userService          interfaces.UserService
-	inviteLinkService    interfaces.InviteLinkService
+	tgUtilsService         interfaces.TGUtilsService
+	adminService           interfaces.AdminService
+	activeChannelService   interfaces.ActiveChannelService
+	userService            interfaces.UserService
+	inviteLinkService      interfaces.InviteLinkService
+	channelActivityService interfaces.ChannelActivityService
 }
 
 func (h *messageHandler) Handle(message *tgbotapi.Message) {
@@ -192,10 +193,10 @@ func (h *messageHandler) handleReferralCommand(message *tgbotapi.Message) {
 	// Sending Link
 	text := "" +
 		"Пересылай эту ссылку коллегам и приглашай их в канал:\n" +
-		inviteLink.InviteLink
+		inviteLink.URL
 
 	if err = h.tgUtilsService.SendMessage(message.Chat.ID, text); err != nil {
-		log.Error("Failed to Send Invite link [%s] to User [%s, %d]: %v", inviteLink.InviteLink, user.FirstName, user.TelegramID, err)
+		log.Error("Failed to Send Invite link [%s] to User [%s, %d]: %v", inviteLink.URL, user.FirstName, user.TelegramID, err)
 		h.tgUtilsService.SendTryAgainLater(message.Chat.ID)
 		return
 	}
@@ -220,8 +221,8 @@ func (h *messageHandler) handleHelpCommand(message *tgbotapi.Message) {
 	text := "" +
 		"Доступные команды:\n" +
 		"/start - Начать работу\n" +
-		"/referral - Получить реферальную ссылку\n" +
-		"/count - Узнать, сколько человек ты уже привёл\n" +
+		"/referral - Получить ссылку-приглашение в канал\n" +
+		"/count - Узнать, сколько человек пришло по твоей ссылке\n" +
 		"/help - Помощь"
 
 	h.tgUtilsService.SendMessage(message.Chat.ID, text)
@@ -293,8 +294,8 @@ func (h *messageHandler) handleCountCommand(message *tgbotapi.Message) {
 
 	if inviteLink == nil {
 		text := "" +
-			"Вы всё ещё не создали свою реферальную ссылку!\n\n" +
-			"Вводите команду /referral и приглашайте коллег в канал. Тогда команда /count покажет, сколько человек пришло по вашей уникальной ссылке."
+			"Упс, у тебя пока нет своей реферальной ссылки!!\n\n" +
+			"Вводи команду /referal и приглашай коллег в канал. Тогда команда /count покажет, сколько человек пришло по твоей ссылке."
 		h.tgUtilsService.SendMessage(message.Chat.ID, text)
 		return
 	}

@@ -11,15 +11,20 @@ import (
 type chatMemberHandler struct {
 	core *core.Core
 
-	tgUtilsServiceService interfaces.TGUtilsService
-	activeChannelService  interfaces.ActiveChannelService
-	userService           interfaces.UserService
-	adminService          interfaces.AdminService
-	inviteLinkService     interfaces.InviteLinkService
+	tgUtilsServiceService  interfaces.TGUtilsService
+	activeChannelService   interfaces.ActiveChannelService
+	userService            interfaces.UserService
+	adminService           interfaces.AdminService
+	inviteLinkService      interfaces.InviteLinkService
+	channelActivityService interfaces.ChannelActivityService
 }
 
 func (h *chatMemberHandler) Handle(chatMemberUpdated *tgbotapi.ChatMemberUpdated) {
 	log := h.core.GetLogger()
+
+	if h.isUserBot(chatMemberUpdated) {
+		return
+	}
 
 	activeChannel, err := h.activeChannelService.Get()
 	if err != nil {
@@ -32,18 +37,16 @@ func (h *chatMemberHandler) Handle(chatMemberUpdated *tgbotapi.ChatMemberUpdated
 		return
 	}
 
-	// Логируем событие
-	log.Info("ChatMember update: user @%s in chat %d, status: %s -> %s",
-		chatMemberUpdated.NewChatMember.User.UserName,
-		chatMemberUpdated.Chat.ID,
-		chatMemberUpdated.OldChatMember.Status,
-		chatMemberUpdated.NewChatMember.Status,
-	)
-
-	if h.isUserBot(chatMemberUpdated) {
-		log.Info("User is bot - ignoring")
-		return
+	var channelActivity *types.ChannelActivity
+	if channelActivity, err = h.channelActivityService.AddFromUpdate(chatMemberUpdated); err != nil {
+		log.Error("Failed to AddFromUpdate channel activity: %v", err)
 	}
+
+	log.Info("ChatMember update: %s, status: %s -> %s",
+		channelActivity.UserFirstName,
+		channelActivity.OldStatus,
+		channelActivity.NewStatus,
+	)
 
 	switch {
 	case h.isJoinEvent(chatMemberUpdated):

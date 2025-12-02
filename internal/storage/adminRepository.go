@@ -21,56 +21,58 @@ func NewAdminRepository(core *core.Core, db *Database) *AdminRepository {
 
 func (r *AdminRepository) GetByID(id int64) (*types.Admin, error) {
 	query := `
-	SELECT id, telegram_id, first_name, last_name, username, created_at, updated_at
-		FROM admins WHERE id = ?
-		`
+		SELECT 
+			id, 
+			telegram_id, first_name, last_name, username, 
+			created_at, updated_at
+		FROM admins 
+		WHERE 
+			id = ?
+	`
 
-	admin := new(types.Admin)
+	var admin types.Admin
 	err := r.db.SqlDB.QueryRow(query, id).Scan(
 		&admin.ID,
-		&admin.TelegramID,
-		&admin.FirstName,
-		&admin.LastName,
-		&admin.Username,
-		&admin.CreatedAt,
-		&admin.UpdatedAt,
+		&admin.TelegramID, &admin.FirstName, &admin.LastName, &admin.Username,
+		&admin.CreatedAt, &admin.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get admin by id")
+		return nil, err
 	}
 
-	return admin, nil
+	return &admin, nil
 }
 
 func (r *AdminRepository) GetByTelegramID(telegramID int64) (*types.Admin, error) {
 	query := `
-	SELECT id, telegram_id, first_name, last_name, username, created_at, updated_at
-		FROM admins WHERE telegram_id = ?
-		`
+		SELECT 
+			id, 
+			telegram_id, first_name, last_name, username, 
+			created_at, updated_at
+		FROM admins 
+		WHERE 
+			telegram_id = ?
+	`
 
-	admin := new(types.Admin)
+	var admin types.Admin
 	err := r.db.SqlDB.QueryRow(query, telegramID).Scan(
 		&admin.ID,
-		&admin.TelegramID,
-		&admin.FirstName,
-		&admin.LastName,
-		&admin.Username,
-		&admin.CreatedAt,
-		&admin.UpdatedAt,
+		&admin.TelegramID, &admin.FirstName, &admin.LastName, &admin.Username,
+		&admin.CreatedAt, &admin.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get admin by id: %w", err)
+		return nil, err
 	}
 
-	return admin, nil
+	return &admin, nil
 }
 
 func (r *AdminRepository) Insert(admin *types.Admin) (*types.Admin, error) {
@@ -79,27 +81,31 @@ func (r *AdminRepository) Insert(admin *types.Admin) (*types.Admin, error) {
 	}
 
 	query := `
-	INSERT INTO admins 
-	(telegram_id, first_name, last_name, username, created_at, updated_at)
-	VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		INSERT INTO admins (
+			telegram_id, first_name, last_name, username, 
+			created_at, updated_at
+		)
+		VALUES (
+			?, ?, ?, ?, 
+			CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+		)
+		RETURNING 
+			id, 
+			telegram_id, first_name, last_name, username, 
+			created_at, updated_at
 	`
-
-	result, err := r.db.SqlDB.Exec(
-		query,
-		admin.TelegramID,
-		admin.FirstName,
-		admin.LastName,
-		admin.Username,
+	var insertedAdmin types.Admin
+	err := r.db.SqlDB.QueryRow(query,
+		admin.TelegramID, admin.FirstName, admin.LastName, admin.Username,
+	).Scan(
+		&insertedAdmin.ID,
+		&insertedAdmin.TelegramID, &insertedAdmin.FirstName, &insertedAdmin.LastName, &insertedAdmin.Username,
+		&insertedAdmin.CreatedAt, &insertedAdmin.UpdatedAt,
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to insert user: %w", err)
+		return nil, err
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get last insert ID: %w", err)
-	}
-
-	return r.GetByID(id)
+	return &insertedAdmin, nil
 }

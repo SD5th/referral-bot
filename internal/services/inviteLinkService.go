@@ -81,7 +81,7 @@ func (s *InviteLinkService) CreateForRequester(requester *types.User) (*types.In
 
 	inviteLink := &types.InviteLink{
 		RequesterID: requester.ID,
-		InviteLink:  result.InviteLink,
+		URL:         result.InviteLink,
 		Name:        result.Name,
 		UniqueJoins: 0,
 	}

@@ -39,3 +39,7 @@ type InviteLinkService interface {
 	CreateForRequester(requester *types.User) (*types.InviteLink, error)
 	GetByRequester(requester *types.User) (*types.InviteLink, error)
 }
+
+type ChannelActivityService interface {
+	AddFromUpdate(update *tgbotapi.ChatMemberUpdated) (*types.ChannelActivity, error)
+}

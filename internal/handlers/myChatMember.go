@@ -12,11 +12,12 @@ import (
 type myChatMemberHandler struct {
 	core *core.Core
 
-	tgUtilsService       interfaces.TGUtilsService
-	activeChannelService interfaces.ActiveChannelService
-	userService          interfaces.UserService
-	adminService         interfaces.AdminService
-	inviteLinkService    interfaces.InviteLinkService
+	tgUtilsService         interfaces.TGUtilsService
+	activeChannelService   interfaces.ActiveChannelService
+	userService            interfaces.UserService
+	adminService           interfaces.AdminService
+	inviteLinkService      interfaces.InviteLinkService
+	channelActivityService interfaces.ChannelActivityService
 }
 
 func (h *myChatMemberHandler) Handle(myChatMemberUpdated *tgbotapi.ChatMemberUpdated) {
@@ -67,7 +68,7 @@ func (h *myChatMemberHandler) handleJoin(myChatMemberUpdated *tgbotapi.ChatMembe
 	log := h.core.GetLogger()
 	inviter := myChatMemberUpdated.From
 	channel := myChatMemberUpdated.Chat
-	log.Info("User [%s, %d] invited bot to channel [%s, %d]", inviter.FirstName, inviter.ID, channel.FirstName, channel.ID)
+	log.Info("User [%s, %d] invited bot to channel [%s, %d]", inviter.FirstName, inviter.ID, channel.Title, channel.ID)
 	/*
 		isAdmin, err := h.adminService.IsAdmin(inviterTelegramID)
 		if err != nil {

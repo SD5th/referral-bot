@@ -109,11 +109,11 @@ func (s *UserService) ProcessJoin(chatMemberUpdated *tgbotapi.ChatMemberUpdated)
 	joinedUser.LastName = tgUser.LastName
 	joinedUser.MemberStatus = types.MemberStatus(chatMemberUpdated.NewChatMember.Status)
 
+	var inviteLink *types.InviteLink
 	if chatMemberUpdated.InviteLink != nil {
 		if chatMemberUpdated.InviteLink.Name == "" {
 			log.Warn("User joined by noname invite link. URL: %s", chatMemberUpdated.InviteLink.InviteLink)
 		} else {
-			var inviteLink *types.InviteLink
 			if inviteLink, err = s.inviteLinkRepository.GetByName(chatMemberUpdated.InviteLink.Name); err != nil {
 				return nil, fmt.Errorf("failed to get invite link by name: %w", err)
 			}
@@ -137,24 +137,6 @@ func (s *UserService) ProcessJoin(chatMemberUpdated *tgbotapi.ChatMemberUpdated)
 	var upsertedUser *types.User
 	if upsertedUser, err = s.userRepository.UpsertBasedOnTelegramID(joinedUser); err != nil {
 		return nil, fmt.Errorf("failed to upsert user: %w", err)
-	}
-
-	activity := &types.ChannelActivity{
-		UserID:    upsertedUser.ID,
-		OldStatus: types.MemberStatus(chatMemberUpdated.OldChatMember.Status),
-		NewStatus: types.MemberStatus(chatMemberUpdated.NewChatMember.Status),
-	}
-	if upsertedUser.InvitedByUserID != nil {
-		invitedByUserID := *upsertedUser.InvitedByUserID
-		activity.InvitedByUserID = &invitedByUserID
-	}
-	if upsertedUser.InvitedByLinkID != nil {
-		invitedByLinkID := *upsertedUser.InvitedByLinkID
-		activity.InvitedByLinkID = &invitedByLinkID
-	}
-
-	if _, err := s.channelActivityRepository.Insert(activity); err != nil {
-		log.Warn("Failed to add channel activity: %v", err)
 	}
 
 	log.Info("Successfully processed join for user @%s", upsertedUser.Username)
@@ -190,7 +172,6 @@ func (s *UserService) ProcessLeave(chatMemberUpdated *tgbotapi.ChatMemberUpdated
 	leftUser.FirstName = tgUser.FirstName
 	leftUser.LastName = tgUser.LastName
 	leftUser.MemberStatus = types.MemberStatus(chatMemberUpdated.NewChatMember.Status)
-	leftUser.InvitedByUserID = nil
 
 	if leftUser.InvitedByLinkID != nil {
 		var inviteLink *types.InviteLink
@@ -201,6 +182,8 @@ func (s *UserService) ProcessLeave(chatMemberUpdated *tgbotapi.ChatMemberUpdated
 		}
 
 		inviteLink.UniqueJoins -= 1
+		leftUser.InvitedByUserID = nil
+		leftUser.InvitedByUserID = nil
 		if _, err := s.inviteLinkRepository.UpdateByID(inviteLink); err != nil {
 			return nil, fmt.Errorf("failed to upsert invite link: %w", err)
 		}
@@ -210,24 +193,6 @@ func (s *UserService) ProcessLeave(chatMemberUpdated *tgbotapi.ChatMemberUpdated
 	upsertedUser, err = s.userRepository.UpsertBasedOnTelegramID(leftUser)
 	if err != nil {
 		return nil, fmt.Errorf("failed to upsert user: %w", err)
-	}
-
-	activity := &types.ChannelActivity{
-		UserID:    upsertedUser.ID,
-		OldStatus: types.MemberStatus(chatMemberUpdated.OldChatMember.Status),
-		NewStatus: types.MemberStatus(chatMemberUpdated.NewChatMember.Status),
-	}
-	if upsertedUser.InvitedByUserID != nil {
-		invitedByUserID := *upsertedUser.InvitedByUserID
-		activity.InvitedByUserID = &invitedByUserID
-	}
-	if upsertedUser.InvitedByLinkID != nil {
-		invitedByLinkID := *upsertedUser.InvitedByLinkID
-		activity.InvitedByLinkID = &invitedByLinkID
-	}
-
-	if _, err := s.channelActivityRepository.Insert(activity); err != nil {
-		log.Warn("Failed to insert channel activity: %v", err)
 	}
 
 	log.Info("Successfully processed leave for user @%s", upsertedUser.Username)

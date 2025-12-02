@@ -25,63 +25,67 @@ func (r *ActiveChannelRepository) Set(channel *types.Channel) (*types.Channel, e
 		return nil, fmt.Errorf("channel cannot be nil")
 	}
 
-	if activeChannel, err := r.Get(); err != nil || activeChannel != nil {
-		if err != nil {
-			return nil, fmt.Errorf("failed to get active channel")
-		}
-		if activeChannel != nil {
-			return nil, fmt.Errorf("there is already an active channel")
-		}
-	}
-
 	query := `
-		INSERT INTO active_channel (id, telegram_id, type, username, title, invite_link, created_at)
-		VALUES (1, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+		INSERT INTO active_channel (
+			telegram_id, type, username, title, 
+			invite_link, 
+			created_at, updated_at
+		)
+		VALUES (
+			?, ?, ?, ?, 
+			?, 
+			CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+		)
+		RETURNING
+			id, 
+			telegram_id, type, username, title, 
+			invite_link, 
+			created_at, updated_at
 	`
 
-	result, err := r.db.SqlDB.Exec(
-		query,
-		channel.TelegramID,
-		channel.Type,
-		channel.Username,
-		channel.Title,
+	var insertedChannel types.Channel
+	err := r.db.SqlDB.QueryRow(query,
+		channel.TelegramID, channel.Type, channel.Username, channel.Title,
 		channel.InviteLink,
+	).Scan(
+		&insertedChannel.ID,
+		&insertedChannel.TelegramID, &insertedChannel.Type, &insertedChannel.Username, &insertedChannel.Title,
+		&insertedChannel.InviteLink,
+		&insertedChannel.CreatedAt, &insertedChannel.UpdatedAt,
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("failed to set active channel: %w", err)
+		return nil, err
 	}
 
-	if _, err = result.LastInsertId(); err != nil {
-		return nil, fmt.Errorf("failed to get last insert ID: %w", err)
-	}
-
-	return r.Get()
+	return &insertedChannel, nil
 }
 
 func (r *ActiveChannelRepository) Get() (*types.Channel, error) {
 	query := `
-		SELECT id, telegram_id, type, username, title, invite_link, created_at, updated_at
-		FROM active_channel WHERE id = 1
+		SELECT 
+			id, 
+			telegram_id, type, username, title, 
+			invite_link, 
+			created_at, updated_at
+		FROM active_channel 
+		WHERE 
+			id = 1
 	`
 
 	var channel types.Channel
 	err := r.db.SqlDB.QueryRow(query).Scan(
 		&channel.ID,
-		&channel.TelegramID,
-		&channel.Type,
-		&channel.Username,
-		&channel.Title,
+		&channel.TelegramID, &channel.Type, &channel.Username, &channel.Title,
 		&channel.InviteLink,
-		&channel.CreatedAt,
-		&channel.UpdatedAt,
+		&channel.CreatedAt, &channel.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get active channel")
+		return nil, err
 	}
 
 	return &channel, nil
@@ -90,14 +94,14 @@ func (r *ActiveChannelRepository) Get() (*types.Channel, error) {
 func (r *ActiveChannelRepository) Delete() error {
 	query := `
 		DELETE
-		FROM active_channel WHERE id = 1
+		FROM active_channel 
+		WHERE 
+			id = 1
 	`
-	result, err := r.db.SqlDB.Exec(
-		query,
-	)
+	result, err := r.db.SqlDB.Exec(query)
 
 	if err != nil {
-		return fmt.Errorf("failed to delete channel: %w", err)
+		return err
 	}
 
 	rowsAffected, err := result.RowsAffected()
@@ -118,29 +122,33 @@ func (r *ActiveChannelRepository) Update(channel *types.Channel) (*types.Channel
 
 	query := `
 		UPDATE active_channel 
-		SET type = ?, username = ?, title = ?, invite_link = ?, updated_at = CURRENT_TIMESTAMP
-		WHERE id = 1
+		SET 
+			type = ?, username = ?, title = ?, 
+			invite_link = ?, 
+			updated_at = CURRENT_TIMESTAMP
+		WHERE 
+			id = 1
+		RETURNING
+			id, 
+			telegram_id, type, username, title, 
+			invite_link, 
+			created_at, updated_at
 	`
 
-	result, err := r.db.SqlDB.Exec(
-		query,
-		channel.Type,
-		channel.Username,
-		channel.Title,
+	var updatedChannel types.Channel
+	err := r.db.SqlDB.QueryRow(query,
+		channel.TelegramID, channel.Type, channel.Username, channel.Title,
 		channel.InviteLink,
+	).Scan(
+		&updatedChannel.ID,
+		&updatedChannel.TelegramID, &updatedChannel.Type, &updatedChannel.Username, &updatedChannel.Title,
+		&updatedChannel.InviteLink,
+		&updatedChannel.CreatedAt, &updatedChannel.UpdatedAt,
 	)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to update channel: %w", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get rows affected: %w", err)
-	}
-	if rowsAffected == 0 {
-		return nil, fmt.Errorf("channel with ID %d not found", channel.ID)
-	}
-
-	return r.Get()
+	return &updatedChannel, nil
 }
