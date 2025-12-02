@@ -23,12 +23,12 @@ type Webhook struct {
 func NewWebhook(core *core.Core) (*Webhook, error) {
 	base, err := newReceiverBase(core)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create baseReceiver: %v", err)
+		return nil, fmt.Errorf("failed to create baseReceiver: %w", err)
 	}
 
 	config := &core.GetConfig().Receiver
 	if err := verifyWebhookConfig(config); err != nil {
-		return nil, fmt.Errorf("wrong webhook config: %v", err)
+		return nil, fmt.Errorf("wrong webhook config: %w", err)
 	}
 
 	return &Webhook{
@@ -69,19 +69,19 @@ func (w *Webhook) Start() error {
 	}
 
 	if err := w.setupReceiverBase(); err != nil {
-		return fmt.Errorf("failed to setup receiver base: %v", err)
+		return fmt.Errorf("failed to setup receiver base: %w", err)
 	}
 
 	if err := w.generateWebhookToken(); err != nil {
-		return fmt.Errorf("failed to generate webhook token: %v", err)
+		return fmt.Errorf("failed to generate webhook token: %w", err)
 	}
 
 	if err := w.setupServer(); err != nil {
-		return fmt.Errorf("failed to setup webhook server: %v", err)
+		return fmt.Errorf("failed to setup webhook server: %w", err)
 	}
 
 	if err := w.setupTelegramWebhook(); err != nil {
-		return fmt.Errorf("failed to setup telegram webhook: %v", err)
+		return fmt.Errorf("failed to setup telegram webhook: %w", err)
 	}
 
 	go w.runServer()
@@ -98,7 +98,7 @@ func (w *Webhook) Start() error {
 func (w *Webhook) generateWebhookToken() error {
 	bytes := make([]byte, 24)
 	if _, err := rand.Read(bytes); err != nil {
-		return fmt.Errorf("failed to generate random bytes: %v", err)
+		return fmt.Errorf("failed to generate random bytes: %w", err)
 	}
 
 	w.webhookToken = base64.URLEncoding.EncodeToString(bytes)
@@ -129,14 +129,14 @@ func (w *Webhook) setupTelegramWebhook() error {
 	webhookURL := "https://" + config.ServerIP + ":" + config.Port + "/webhook/" + w.webhookToken
 	webhookConfig, err := tgbotapi.NewWebhookWithCert(webhookURL, tgbotapi.FilePath(config.CertFile))
 	if err != nil {
-		return fmt.Errorf("failed to create webhook: %v", err)
+		return fmt.Errorf("failed to create webhook: %w", err)
 	}
 
 	webhookConfig.AllowedUpdates = w.core.GetConfig().Receiver.AllowedUpdates
 
 	_, err = w.core.GetBotAPI().Request(webhookConfig)
 	if err != nil {
-		return fmt.Errorf("failed to set webhook: %v", err)
+		return fmt.Errorf("failed to set webhook: %w", err)
 	}
 
 	w.core.GetLogger().Info("Telegram webhook configured to: %s", webhookURL)
@@ -216,7 +216,7 @@ func (w *Webhook) Stop() error {
 	}
 
 	if err := w.stopReceiverBase(); err != nil {
-		return fmt.Errorf("failed to stop receiver base: %v", err)
+		return fmt.Errorf("failed to stop receiver base: %w", err)
 	}
 
 	log.Info("Webhook stopped gracefully")

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"referral-bot/internal/bot"
@@ -11,8 +10,9 @@ import (
 	"referral-bot/internal/interfaces"
 	"referral-bot/internal/logger"
 	"referral-bot/internal/receivers"
+	"referral-bot/internal/services"
+	"referral-bot/internal/storage"
 	"syscall"
-	"time"
 )
 
 func main() {
@@ -22,8 +22,6 @@ func main() {
 
 	core.SetLogger(logger)
 	log := core.GetLogger()
-
-	startTime := time.Now()
 
 	log.Info("Starting application...")
 
@@ -36,14 +34,31 @@ func main() {
 	config := core.GetConfig()
 	log.Info("Configuration loaded")
 
-	fmt.Printf("%+v\n", config)
+	//fmt.Printf("%+v\n", config)
 
-	/*
-		mainDB, err := storage.NewDatabase()
-		if err != nil {
-			log.Fatal("Failed to initialize database: %v", err)
-			}
-	*/
+	db, err := storage.NewDatabase(core, "./data/bot.db")
+	if err != nil {
+		log.Fatal("Failed to initialize database: %v", err)
+	}
+
+	// repositories
+	activeChannelRepository := storage.NewActiveChannelRepository(core, db)
+	channelActivityRepository := storage.NewChannelActivityRepository(core, db)
+	userRepository := storage.NewUserRepository(core, db)
+	adminRepository := storage.NewAdminRepository(core, db)
+	inviteLinkRepository := storage.NewInviteLinkRepository(core, db)
+
+	// services
+	activeChannelService := services.NewActiveChannelService(core, activeChannelRepository, userRepository, inviteLinkRepository, channelActivityRepository)
+	inviteLinkService := services.NewInviteLinkService(core, activeChannelRepository, userRepository, inviteLinkRepository, channelActivityRepository)
+	userService := services.NewUserService(core, activeChannelRepository, userRepository, inviteLinkRepository, channelActivityRepository)
+	adminService := services.NewAdminService(core, activeChannelRepository, userRepository, adminRepository, inviteLinkRepository, channelActivityRepository)
+	tgUtilsService := services.NewTGUtilsService(core)
+
+	updateHandler, err := handlers.NewUpdateHandler(core, activeChannelService, userService, adminService, tgUtilsService, inviteLinkService)
+	if err != nil {
+		log.Fatal("Failed to create update handler: %v", err)
+	}
 
 	log.Info("Initializing bot...")
 	botAPI, err := bot.SetupBotAPI(&config.BotAPI)
@@ -60,11 +75,6 @@ func main() {
 		log.Fatal("Failed to create update receiver: %v", err)
 	}
 
-	updateHandler, err := handlers.NewUpdateHandler(core, updateReceiver)
-	if err != nil {
-		log.Fatal("Failed to create update handler: %v", err)
-	}
-
 	if err := updateReceiver.SetUpdateHandler(updateHandler); err != nil {
 		log.Fatal("Failed to set update handler: %v", err)
 	}
@@ -73,16 +83,12 @@ func main() {
 	if err := updateReceiver.Start(); err != nil {
 		log.Fatal("Failed to start update receiver")
 	}
-
 	log.Info("Receiver started")
-
-	startupTime := time.Since(startTime)
-	log.Info("Application started successfully (took %v)", startupTime.Round(time.Millisecond))
 
 	waitForShutdown(core, updateReceiver)
 }
 
-func waitForShutdown(core *core.Core, updateReceiver interfaces.UpdateReceiverInterface) {
+func waitForShutdown(core *core.Core, updateReceiver interfaces.UpdateReceiver) {
 	log := core.GetLogger()
 
 	sigChan := make(chan os.Signal, 1)

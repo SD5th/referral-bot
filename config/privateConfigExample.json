@@ -1,0 +1,12 @@
+{
+  "bot_api": {
+    "token": "token"
+  },
+  "receiver": {
+    "webhook": {
+      "server_ip": "123.123.123.123",
+      "cert_file": "/home/user/bot/https/cert.pem",
+      "key_file": "/home/user/bot/https/private.key"
+    }
+  }
+}

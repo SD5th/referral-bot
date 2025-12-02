@@ -10,7 +10,7 @@ import (
 func SetupBotAPI(config *config.BotAPIConfig) (*tgbotapi.BotAPI, error) {
 	api, err := tgbotapi.NewBotAPI(config.Token)
 	if err != nil {
-		return nil, fmt.Errorf("creating Bot API error: %v", err)
+		return nil, fmt.Errorf("creating Bot API error: %w", err)
 	}
 
 	api.Debug = config.Debug

@@ -16,12 +16,12 @@ type Poller struct {
 func NewPoller(core *core.Core) (*Poller, error) {
 	base, err := newReceiverBase(core)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create baseReceiver: %v", err)
+		return nil, fmt.Errorf("failed to create baseReceiver: %w", err)
 	}
 
 	config := &core.GetConfig().Receiver
 	if err := verifyPollerConfig(config); err != nil {
-		return nil, fmt.Errorf("wrong poller config: %v", err)
+		return nil, fmt.Errorf("wrong poller config: %w", err)
 	}
 
 	return &Poller{
@@ -50,11 +50,11 @@ func (p *Poller) Start() error {
 	}
 
 	if err := p.setupReceiverBase(); err != nil {
-		return fmt.Errorf("failed to setup receiver base: %v", err)
+		return fmt.Errorf("failed to setup receiver base: %w", err)
 	}
 
 	if err := p.setupTelegramUpdatesChannel(); err != nil {
-		return fmt.Errorf("failed to setup telegram poller: %v", err)
+		return fmt.Errorf("failed to setup telegram poller: %w", err)
 	}
 
 	go p.runPoller()
@@ -109,7 +109,7 @@ func (p *Poller) Stop() error {
 	}
 
 	if err := p.stopReceiverBase(); err != nil {
-		return fmt.Errorf("failed to stop receiver base: %v", err)
+		return fmt.Errorf("failed to stop receiver base: %w", err)
 	}
 
 	p.core.GetLogger().Info("Poller base stopped gracefully")

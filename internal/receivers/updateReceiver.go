@@ -6,9 +6,9 @@ import (
 	"referral-bot/internal/interfaces"
 )
 
-func NewUpdateReceiver(core *core.Core) (interfaces.UpdateReceiverInterface, error) {
+func NewUpdateReceiver(core *core.Core) (interfaces.UpdateReceiver, error) {
 
-	var updateReceiver interfaces.UpdateReceiverInterface
+	var updateReceiver interfaces.UpdateReceiver
 	var err error
 
 	config := core.GetConfig()

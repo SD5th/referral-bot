@@ -1,10 +1,10 @@
 package interfaces
 
-type UpdateReceiverInterface interface {
+type UpdateReceiver interface {
 	Start() error
 	Stop() error
 	IsRunning() bool
 	GetType() string
 
-	SetUpdateHandler(UpdateHandlerInterface) error
+	SetUpdateHandler(UpdateHandler) error
 }

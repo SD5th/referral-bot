@@ -14,7 +14,7 @@ import (
 
 type receiverBase struct {
 	core          *core.Core
-	updateHandler interfaces.UpdateHandlerInterface
+	updateHandler interfaces.UpdateHandler
 
 	running       bool
 	ctx           context.Context
@@ -30,7 +30,7 @@ func newReceiverBase(core *core.Core) (*receiverBase, error) {
 
 	config := &core.GetConfig().Receiver
 	if err := verifyReceiverBaseConfig(config); err != nil {
-		return nil, fmt.Errorf("wrong receiver config: %v", err)
+		return nil, fmt.Errorf("wrong receiver config: %w", err)
 	}
 
 	return &receiverBase{
@@ -45,7 +45,7 @@ func newReceiverBase(core *core.Core) (*receiverBase, error) {
 	}, nil
 }
 
-func (b *receiverBase) SetUpdateHandler(updateHandler interfaces.UpdateHandlerInterface) error {
+func (b *receiverBase) SetUpdateHandler(updateHandler interfaces.UpdateHandler) error {
 	if updateHandler == nil {
 		return fmt.Errorf("update handler cannot be nil")
 	}
@@ -87,7 +87,7 @@ func (b *receiverBase) setupReceiverBase() error {
 	}
 
 	if err := b.openUpdatesBuffer(); err != nil {
-		return fmt.Errorf("failed to open updates buffer: %v", err)
+		return fmt.Errorf("failed to open updates buffer: %w", err)
 	}
 	b.running = true
 
@@ -173,7 +173,7 @@ func (b *receiverBase) stopReceiverBase() error {
 	}
 
 	if err := b.closeUpdatesBuffer(); err != nil {
-		return fmt.Errorf("failed to close updates buffer: %v", err)
+		return fmt.Errorf("failed to close updates buffer: %w", err)
 	}
 
 	b.cancel()
