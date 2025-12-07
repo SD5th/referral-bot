@@ -19,14 +19,12 @@ type AdminService interface {
 }
 
 type UserService interface {
-	RegisterInDB(tgUser *tgbotapi.User) (*types.User, error)
+	UpdateOrRegister(tgUser *tgbotapi.User) (*types.User, error)
 
 	ProcessJoin(chatMemberUpdated *tgbotapi.ChatMemberUpdated) (*types.User, error)
 	ProcessLeave(chatMemberUpdated *tgbotapi.ChatMemberUpdated) (*types.User, error)
 
-	CanCreateReferralLink(telegramID int64) (bool, error)
-
-	GetOrUpdateFromMessage(message *tgbotapi.Message) (*types.User, error)
+	RequestMemberStatusByTelegramID(telegramID int64) (types.MemberStatus, error)
 }
 
 type TGUtilsService interface {
@@ -36,8 +34,8 @@ type TGUtilsService interface {
 }
 
 type InviteLinkService interface {
-	CreateForRequester(requester *types.User) (*types.InviteLink, error)
-	GetByRequester(requester *types.User) (*types.InviteLink, error)
+	GetByRequesterTelegramID(telegramID int64) (*types.InviteLink, error)
+	GetOrCreateByRequesterTelegramID(telegramID int64) (*types.InviteLink, error)
 }
 
 type ChannelActivityService interface {

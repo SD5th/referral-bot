@@ -19,16 +19,17 @@ type UserRepository interface {
 	GetByID(id int64) (*types.User, error)
 	GetByTelegramID(telegramID int64) (*types.User, error)
 	Insert(user *types.User) (*types.User, error)
-	UpdateBasedOnTelegramID(user *types.User) (*types.User, error)
-	UpsertBasedOnTelegramID(user *types.User) (*types.User, error)
+	InsertOrUpdateUserInfo(user *types.User) (*types.User, error)
+	UpdateUserInfo(user *types.User) (*types.User, error)
+	UpdateLinkInfo(user *types.User) (*types.User, error)
 }
 
 type InviteLinkRepository interface {
 	GetByID(id int64) (*types.InviteLink, error)
 	GetByName(name string) (*types.InviteLink, error)
 	Insert(inviteLink *types.InviteLink) (*types.InviteLink, error)
-	UpdateByID(inviteLink *types.InviteLink) (*types.InviteLink, error)
-	//Upsert(inviteLink *types.InviteLink) (*types.InviteLink, error)
+	IncreaseCounterByID(id int64) (*types.InviteLink, error)
+	DecreaseCounterByID(id int64) (*types.InviteLink, error)
 }
 
 type ChannelActivityRepository interface {

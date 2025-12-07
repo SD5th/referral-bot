@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"referral-bot/internal/core"
 	"referral-bot/internal/interfaces"
 	"referral-bot/internal/types"
@@ -44,10 +43,8 @@ func (h *myChatMemberHandler) isJoinEvent(chatMemberUpdated *tgbotapi.ChatMember
 	old := types.MemberStatus(chatMemberUpdated.OldChatMember.Status)
 	new := types.MemberStatus(chatMemberUpdated.NewChatMember.Status)
 
-	if (old == types.MemberStatusKicked) || (old == types.MemberStatusLeft) {
-		if new == types.MemberStatusAdministrator {
-			return true
-		}
+	if old.NotInChannel() && new.InChannel() {
+		return true
 	}
 	return false
 }
@@ -56,10 +53,8 @@ func (h *myChatMemberHandler) isLeaveEvent(chatMemberUpdated *tgbotapi.ChatMembe
 	old := types.MemberStatus(chatMemberUpdated.OldChatMember.Status)
 	new := types.MemberStatus(chatMemberUpdated.NewChatMember.Status)
 
-	if old == types.MemberStatusAdministrator {
-		if (new == types.MemberStatusKicked) || (new == types.MemberStatusLeft) {
-			return true
-		}
+	if old.InChannel() && new.NotInChannel() {
+		return true
 	}
 	return false
 }
@@ -111,30 +106,29 @@ func (h *myChatMemberHandler) handleLeave(myChatMemberUpdated *tgbotapi.ChatMemb
 	kicker := myChatMemberUpdated.From
 	channel := myChatMemberUpdated.Chat
 	log.Info("User [%s, %d] kicked bot from channel [%s, %d]", kicker.FirstName, kicker.ID, channel.FirstName, channel.ID)
-
-	/*
-		activeChannel, err := h.activeChannelService.Get()
-		if err != nil {
-			log.Error("Failed to get active channel: %v", err)
-			return
-		}
-
-		if activeChannel == nil {
-			log.Info("Have no active chat, ignoring")
-			return
-		}
-
-		if activeChannel.TelegramID != myChatMemberUpdated.Chat.ID {
-			log.Info("Kicked from non-active chat, ignoring")
-			return
-		}
-
-		log.Warn("Kicked from active chat, you beter be joking boy")
-	*/
 }
 
-func (h *myChatMemberHandler) leaveChannel(channelID int64) error {
-	err, botAPI, log, _ := h.core.GetAll()
+/*
+	activeChannel, err := h.activeChannelService.Get()
+	if err != nil {
+		log.Error("Failed to get active channel: %v", err)
+		return
+	}
+
+	if activeChannel == nil {
+		log.Info("Have no active chat, ignoring")
+		return
+	}
+
+	if activeChannel.TelegramID != myChatMemberUpdated.Chat.ID {
+		log.Info("Kicked from non-active chat, ignoring")
+		return
+	}
+
+	log.Warn("Kicked from active chat, you beter be joking boy")
+
+	func (h *myChatMemberHandler) leaveChannel(channelID int64) error {
+		err, botAPI, log, _ := h.core.GetAll()
 	if err != nil {
 		return err
 	}
@@ -147,3 +141,5 @@ func (h *myChatMemberHandler) leaveChannel(channelID int64) error {
 	log.Info("Bot left channel: %d", channelID)
 	return nil
 }
+
+*/

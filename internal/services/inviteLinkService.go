@@ -35,27 +35,57 @@ func NewInviteLinkService(
 	}
 }
 
-func (s *InviteLinkService) CreateForRequester(requester *types.User) (*types.InviteLink, error) {
+func (s *InviteLinkService) GetByRequesterTelegramID(telegramID int64) (*types.InviteLink, error) {
+	err, _, _, _ := s.core.GetAll()
+
+	var requester *types.User
+	requester, err = s.userRepository.GetByTelegramID(telegramID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to GetByTelegramID user: %w", err)
+	} else if requester == nil {
+		return nil, fmt.Errorf("there is no user with telegramID: %d", telegramID)
+	}
+
+	if requester.InviteLinkID == nil {
+		return nil, nil
+	}
+
+	var createdLink *types.InviteLink
+	if createdLink, err = s.inviteLinkRepository.GetByID(*requester.InviteLinkID); err != nil {
+		return nil, fmt.Errorf("failed to get by requester: %w", err)
+	} else if createdLink == nil {
+		return nil, fmt.Errorf("cannot find link with id [%d]", *requester.InviteLinkID)
+	}
+
+	return createdLink, nil
+}
+
+func (s *InviteLinkService) GetOrCreateByRequesterTelegramID(telegramID int64) (*types.InviteLink, error) {
 	err, botAPI, log, _ := s.core.GetAll()
-	if err != nil {
-		return nil, err
-	}
 
-	activeChannel, err := s.activeChannelRepository.Get()
-	if err != nil {
+	var activeChannel *types.Channel
+	if activeChannel, err = s.activeChannelRepository.Get(); err != nil {
 		return nil, fmt.Errorf("failed to get active channel: %w", err)
-	}
-
-	if activeChannel == nil {
+	} else if activeChannel == nil {
 		return nil, fmt.Errorf("no active channel, ignoring")
 	}
 
-	var alreadyCreatedLink *types.InviteLink
-	if alreadyCreatedLink, err = s.GetByRequester(requester); err != nil {
-		return nil, fmt.Errorf("failed to get by requester: %w", err)
+	var requester *types.User
+	requester, err = s.userRepository.GetByTelegramID(telegramID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to GetByTelegramID user: %w", err)
+	} else if requester == nil {
+		return nil, fmt.Errorf("there is no user with telegramID: %d", telegramID)
 	}
-	if alreadyCreatedLink != nil {
-		return nil, fmt.Errorf("link already created")
+
+	if requester.InviteLinkID != nil {
+		var alreadyCreatedLink *types.InviteLink
+		if alreadyCreatedLink, err = s.inviteLinkRepository.GetByID(*requester.InviteLinkID); err != nil {
+			return nil, fmt.Errorf("failed to get by requester: %w", err)
+		}
+		if alreadyCreatedLink == nil {
+			return nil, fmt.Errorf("alreadyCreatedLink is nil, but requester has not-nil InviteLinkID [%d]", *requester.InviteLinkID)
+		}
 	}
 
 	linkName := s.generateLinkName(requester)
@@ -92,8 +122,14 @@ func (s *InviteLinkService) CreateForRequester(requester *types.User) (*types.In
 	}
 
 	inviteLinkID := createdLink.ID
-	requester.InviteLinkID = &inviteLinkID
-	s.userRepository.UpsertBasedOnTelegramID(requester)
+	userToUpdate := &types.User{
+		TelegramID:   requester.TelegramID,
+		InviteLinkID: &inviteLinkID,
+	}
+
+	if _, err = s.userRepository.UpdateLinkInfo(userToUpdate); err != nil {
+		return nil, fmt.Errorf("failed to UpdateLinkInfo for user [%d]: %w", requester.TelegramID, err)
+	}
 
 	log.Info("Created invite link for channel %s: %s", activeChannel.Title, createdLink.Name)
 
@@ -102,19 +138,4 @@ func (s *InviteLinkService) CreateForRequester(requester *types.User) (*types.In
 
 func (s *InviteLinkService) generateLinkName(requester *types.User) string {
 	return fmt.Sprintf("%d", requester.TelegramID)
-}
-
-func (s *InviteLinkService) GetByRequester(requester *types.User) (*types.InviteLink, error) {
-	err, _, _, _ := s.core.GetAll()
-
-	if requester.InviteLinkID == nil {
-		return nil, nil
-	}
-
-	var inviteLink *types.InviteLink
-	if inviteLink, err = s.inviteLinkRepository.GetByID(*requester.InviteLinkID); err != nil {
-		return nil, fmt.Errorf("failed to get invite link by id: %w", err)
-	}
-
-	return inviteLink, nil
 }

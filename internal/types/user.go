@@ -29,45 +29,32 @@ const (
 	MemberStatusKicked        MemberStatus = "kicked"
 )
 
-/*
-	func UserFromTgChatMember(tgChatMember *tgbotapi.ChatMember) *User {
-		if tgChatMember == nil || tgChatMember.User == nil {
-			return nil
-		}
-		return &User{
-			//ID: getting from DB
-			TelegramID:      tgChatMember.User.ID,
-			Username:        tgChatMember.User.UserName,
-			FirstName:       tgChatMember.User.FirstName,
-			LastName:        tgChatMember.User.LastName,
-			Status:          UserStatus(tgChatMember.Status),
-			InvitedByUserID: nil, // by default
-			InvitedByLinkID: nil, // by default
-			InviteLinkID:    nil, // by default
-			//CreatedAt: DB debug info
-			//UpdatedAt: DB debug info
-		}
+func (ms MemberStatus) InChannel() bool {
+	switch ms {
+	case MemberStatusCreator, MemberStatusAdministrator, MemberStatusMember:
+		return true
+	case MemberStatusKicked, MemberStatusLeft:
+		return false
+	case MemberStatusRestricted:
+		return false // restricted needs more context, false for now
+	default:
+		return false
 	}
+}
 
-	func UserFromTgUser(tgUser *tgbotapi.User) *User {
-		if tgUser == nil {
-			return nil
-		}
-		return &User{
-			//ID: getting from DB
-			TelegramID:      tgUser.ID,
-			Username:        tgUser.UserName,
-			FirstName:       tgUser.FirstName,
-			LastName:        tgUser.LastName,
-			Status:          Member, // by default
-			InvitedByUserID: nil,    // by default
-			InvitedByLinkID: nil,    // by default
-			InviteLinkID:    nil,    // by default
-			//CreatedAt: DB debug info
-			//UpdatedAt: DB debug info
-		}
+func (ms MemberStatus) NotInChannel() bool {
+	switch ms {
+	case MemberStatusCreator, MemberStatusAdministrator, MemberStatusMember:
+		return false
+	case MemberStatusKicked, MemberStatusLeft:
+		return true
+	case MemberStatusRestricted:
+		return true // restricted needs more context, true for now
+	default:
+		return false
 	}
-*/
+}
+
 func (user *User) IsMember() bool {
 	if user == nil {
 		return false

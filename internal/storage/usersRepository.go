@@ -35,16 +35,10 @@ func (r *UserRepository) GetByID(id int64) (*types.User, error) {
 	var foundUser types.User
 	err := r.db.SqlDB.QueryRow(query, id).Scan(
 		&foundUser.ID,
-		&foundUser.TelegramID,
-		&foundUser.FirstName,
-		&foundUser.LastName,
-		&foundUser.Username,
-		&foundUser.MemberStatus,
-		&foundUser.InvitedByUserID,
-		&foundUser.InvitedByLinkID,
+		&foundUser.TelegramID, &foundUser.FirstName, &foundUser.LastName, &foundUser.Username, &foundUser.MemberStatus,
+		&foundUser.InvitedByUserID, &foundUser.InvitedByLinkID,
 		&foundUser.InviteLinkID,
-		&foundUser.CreatedAt,
-		&foundUser.UpdatedAt,
+		&foundUser.CreatedAt, &foundUser.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -70,19 +64,13 @@ func (r *UserRepository) GetByTelegramID(telegramID int64) (*types.User, error) 
 			telegram_id = ?
 		`
 
-	user := new(types.User)
+	foundUser := new(types.User)
 	err := r.db.SqlDB.QueryRow(query, telegramID).Scan(
-		&user.ID,
-		&user.TelegramID,
-		&user.FirstName,
-		&user.LastName,
-		&user.Username,
-		&user.MemberStatus,
-		&user.InvitedByUserID,
-		&user.InvitedByLinkID,
-		&user.InviteLinkID,
-		&user.CreatedAt,
-		&user.UpdatedAt,
+		&foundUser.ID,
+		&foundUser.TelegramID, &foundUser.FirstName, &foundUser.LastName, &foundUser.Username, &foundUser.MemberStatus,
+		&foundUser.InvitedByUserID, &foundUser.InvitedByLinkID,
+		&foundUser.InviteLinkID,
+		&foundUser.CreatedAt, &foundUser.UpdatedAt,
 	)
 
 	if err == sql.ErrNoRows {
@@ -92,7 +80,7 @@ func (r *UserRepository) GetByTelegramID(telegramID int64) (*types.User, error) 
 		return nil, err
 	}
 
-	return user, nil
+	return foundUser, nil
 }
 
 func (r *UserRepository) Insert(user *types.User) (*types.User, error) {
@@ -140,7 +128,24 @@ func (r *UserRepository) Insert(user *types.User) (*types.User, error) {
 	return &insertedUser, nil
 }
 
-func (r *UserRepository) UpdateBasedOnTelegramID(user *types.User) (*types.User, error) {
+func (r *UserRepository) InsertOrUpdateUserInfo(user *types.User) (*types.User, error) {
+	if user == nil {
+		return nil, fmt.Errorf("user is nil")
+	}
+
+	updatedUser, err := r.UpdateUserInfo(user)
+	if err == nil {
+		return updatedUser, nil
+	}
+
+	if err == sql.ErrNoRows {
+		return r.Insert(user)
+	}
+
+	return nil, err
+}
+
+func (r *UserRepository) UpdateUserInfo(user *types.User) (*types.User, error) {
 	if user == nil {
 		return nil, fmt.Errorf("user is nil")
 	}
@@ -149,8 +154,6 @@ func (r *UserRepository) UpdateBasedOnTelegramID(user *types.User) (*types.User,
 		UPDATE users 
 		SET 
 			first_name = ?, last_name = ?, username = ?, member_status = ?, 
-			invited_by_user_id = ?, invited_by_link_id = ?, 
-			invite_link_id = ?, 
 			updated_at = CURRENT_TIMESTAMP
 		WHERE 
 			telegram_id = ?
@@ -165,8 +168,6 @@ func (r *UserRepository) UpdateBasedOnTelegramID(user *types.User) (*types.User,
 	var updatedUser types.User
 	err := r.db.SqlDB.QueryRow(query,
 		user.FirstName, user.LastName, user.Username, user.MemberStatus,
-		user.InvitedByUserID, user.InvitedByLinkID,
-		user.InviteLinkID,
 
 		user.TelegramID,
 	).Scan(
@@ -187,19 +188,45 @@ func (r *UserRepository) UpdateBasedOnTelegramID(user *types.User) (*types.User,
 	return &updatedUser, nil
 }
 
-func (r *UserRepository) UpsertBasedOnTelegramID(user *types.User) (*types.User, error) {
+func (r *UserRepository) UpdateLinkInfo(user *types.User) (*types.User, error) {
 	if user == nil {
 		return nil, fmt.Errorf("user is nil")
 	}
 
-	updatedUser, err := r.UpdateBasedOnTelegramID(user)
-	if err == nil {
-		return updatedUser, nil
-	}
+	query := `
+		UPDATE users 
+		SET 
+			invite_link_id = ?,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE 
+			telegram_id = ?
+		RETURNING 
+			id, 
+			telegram_id, first_name, last_name, username, member_status, 
+			invited_by_user_id, invited_by_link_id, 
+			invite_link_id, 
+			created_at, updated_at
+	`
+
+	var updatedUser types.User
+	err := r.db.SqlDB.QueryRow(query,
+		user.InviteLinkID,
+
+		user.TelegramID,
+	).Scan(
+		&updatedUser.ID,
+		&updatedUser.TelegramID, &updatedUser.FirstName, &updatedUser.LastName, &updatedUser.Username, &updatedUser.MemberStatus,
+		&updatedUser.InvitedByUserID, &updatedUser.InvitedByLinkID,
+		&updatedUser.InviteLinkID,
+		&updatedUser.CreatedAt, &updatedUser.UpdatedAt,
+	)
 
 	if err == sql.ErrNoRows {
-		return r.Insert(user)
+		return nil, sql.ErrNoRows
+	}
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, err
+	return &updatedUser, nil
 }

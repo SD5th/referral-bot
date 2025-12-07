@@ -130,17 +130,11 @@ func (r *InviteLinkRepository) Insert(inviteLink *types.InviteLink) (*types.Invi
 	return &insertedLink, nil
 }
 
-func (r *InviteLinkRepository) UpdateByID(inviteLink *types.InviteLink) (*types.InviteLink, error) {
-	if inviteLink == nil {
-		return nil, fmt.Errorf("inviteLink is nil")
-	}
-
+func (r *InviteLinkRepository) IncreaseCounterByID(id int64) (*types.InviteLink, error) {
 	query := `
 		UPDATE invite_links 
 		SET 
-			requester_id = ?, 
-			url = ?, name = ?, 
-			unique_joins = ?, 
+			unique_joins = unique_joins + 1, 
 			updated_at = CURRENT_TIMESTAMP
 		WHERE 
 			id = ?
@@ -154,11 +148,7 @@ func (r *InviteLinkRepository) UpdateByID(inviteLink *types.InviteLink) (*types.
 
 	var updatedLink types.InviteLink
 	err := r.db.SqlDB.QueryRow(query,
-		inviteLink.RequesterID,
-		inviteLink.URL, inviteLink.Name,
-		inviteLink.UniqueJoins,
-
-		inviteLink.ID,
+		id,
 	).Scan(
 		&updatedLink.ID,
 		&updatedLink.RequesterID,
@@ -175,5 +165,41 @@ func (r *InviteLinkRepository) UpdateByID(inviteLink *types.InviteLink) (*types.
 	}
 
 	return &updatedLink, nil
+}
 
+func (r *InviteLinkRepository) DecreaseCounterByID(id int64) (*types.InviteLink, error) {
+	query := `
+		UPDATE invite_links 
+		SET 
+			unique_joins = unique_joins - 1, 
+			updated_at = CURRENT_TIMESTAMP
+		WHERE 
+			id = ?
+		RETURNING
+			id, 
+			requester_id, 
+			url, name, 
+			unique_joins, 
+			created_at, updated_at	
+	`
+
+	var updatedLink types.InviteLink
+	err := r.db.SqlDB.QueryRow(query,
+		id,
+	).Scan(
+		&updatedLink.ID,
+		&updatedLink.RequesterID,
+		&updatedLink.URL, &updatedLink.Name,
+		&updatedLink.UniqueJoins,
+		&updatedLink.CreatedAt, &updatedLink.UpdatedAt,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, sql.ErrNoRows
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &updatedLink, nil
 }
