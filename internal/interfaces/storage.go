@@ -18,6 +18,7 @@ type AdminRepository interface {
 type UserRepository interface {
 	GetByID(id int64) (*types.User, error)
 	GetByTelegramID(telegramID int64) (*types.User, error)
+	GetByMinJoins(minJoins int) ([]*types.User, error)
 	Insert(user *types.User) (*types.User, error)
 	UpdateBasedOnTelegramID(user *types.User) (*types.User, error)
 	UpsertBasedOnTelegramID(user *types.User) (*types.User, error)

@@ -200,6 +200,16 @@ func (s *UserService) ProcessLeave(chatMemberUpdated *tgbotapi.ChatMemberUpdated
 	return upsertedUser, nil
 }
 
+func (s *UserService) GetWinners() ([]*types.User, error) {
+	winners, err := s.userRepository.GetByMinJoins(3)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to Get By Min[%d] Joins: %w", 3, err)
+	}
+
+	return winners, nil
+}
+
 func (s *UserService) CanCreateReferralLink(telegramID int64) (bool, error) {
 	activeChannel, err := s.activeChannelRepository.Get()
 	if err != nil {

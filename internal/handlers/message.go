@@ -92,6 +92,15 @@ func (h *messageHandler) handleCommand(message *tgbotapi.Message) {
 		case "regact":
 			h.handleRegisterAsActive(message)
 			return
+		case "winners":
+			h.handleWinners(message)
+			return
+		case "notifywinner":
+			h.handleNotifyWinner(message)
+			return
+		case "textuser":
+			h.handleTextUser(message)
+			return
 		}
 	}
 
@@ -384,6 +393,65 @@ func (h *messageHandler) handleRegisterAsActive(message *tgbotapi.Message) {
 		activeChannel.Title,
 	)
 	h.tgUtilsService.SendMessage(message.Chat.ID, "Active channel registered")
+}
+
+func (h *messageHandler) handleWinners(message *tgbotapi.Message) {
+	log := h.core.GetLogger()
+
+	winners, err := h.userService.GetWinners()
+	if err != nil {
+		log.Error("Failed to Get Winners: %v", err)
+		h.tgUtilsService.SendTryAgainLater(message.Chat.ID)
+		return
+	}
+
+	text := "Winners:\n\n"
+	for _, winner := range winners {
+		text += fmt.Sprintf("ID: %d \nTelegramID: %d \nFirstName: %s \nUserName: @%s \n\n", winner.ID, winner.TelegramID, winner.FirstName, winner.Username)
+	}
+
+	h.tgUtilsService.SendMessage(message.Chat.ID, text)
+}
+
+func (h *messageHandler) handleTextUser(message *tgbotapi.Message) {
+	log := h.core.GetLogger()
+
+	parts := strings.SplitN(message.Text, "\n", 3)
+
+	userTelegramID, err := strconv.Atoi(parts[1])
+	if err != nil {
+		log.Error("Failed to parse Text User command: %v", err)
+		return
+	}
+
+	text := parts[2]
+
+	err = h.tgUtilsService.SendMessage(int64(userTelegramID), text)
+	if err != nil {
+		log.Error("Something went wrong while sending message: %v", err)
+	}
+}
+
+func (h *messageHandler) handleNotifyWinner(message *tgbotapi.Message) {
+	log := h.core.GetLogger()
+
+	parts := strings.SplitN(message.Text, "\n", 2)
+
+	winnerTelegramID, err := strconv.Atoi(parts[1])
+	if err != nil {
+		log.Error("Failed to parse Notify Winners command: %v", err)
+		return
+	}
+
+	text := "" +
+		"Поздравляем! Вы выиграли в <a href=\"https://t.me/c/1251733097/5101\">розыгрыше «Медиа Снабжения»</a>, и теперь одна из трёх годовых подписок на Telegram Premium ваша.\n\n" +
+		"Свяжитесь с редактором канала @vkozyreva, чтобы узнать, как получить приз.\n\n" +
+		"Спасибо, что читаете и приглашаете коллег!"
+
+	err = h.tgUtilsService.SendMessage(int64(winnerTelegramID), text)
+	if err != nil {
+		log.Error("Something went wrong while sending message: %v", err)
+	}
 }
 
 /*

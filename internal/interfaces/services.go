@@ -24,6 +24,7 @@ type UserService interface {
 	ProcessJoin(chatMemberUpdated *tgbotapi.ChatMemberUpdated) (*types.User, error)
 	ProcessLeave(chatMemberUpdated *tgbotapi.ChatMemberUpdated) (*types.User, error)
 
+	GetWinners() ([]*types.User, error)
 	CanCreateReferralLink(telegramID int64) (bool, error)
 
 	GetOrUpdateFromMessage(message *tgbotapi.Message) (*types.User, error)

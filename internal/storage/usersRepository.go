@@ -95,6 +95,65 @@ func (r *UserRepository) GetByTelegramID(telegramID int64) (*types.User, error) 
 	return user, nil
 }
 
+func (r *UserRepository) GetByMinJoins(minJoins int) ([]*types.User, error) {
+	query := `
+		SELECT 
+			id, 
+			telegram_id, first_name, last_name, username, member_status, 
+			invited_by_user_id, invited_by_link_id, 
+			invite_link_id, 
+			created_at, updated_at
+		FROM users
+		WHERE id IN (
+			SELECT DISTINCT requester_id 
+			FROM invite_links 
+			WHERE unique_joins >= ?
+		)
+  `
+
+	rows, err := r.db.SqlDB.Query(query, minJoins)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	var users []*types.User
+	for rows.Next() {
+		var user types.User
+
+		err := rows.Scan(
+			&user.ID,
+			&user.TelegramID,
+			&user.FirstName,
+			&user.LastName,
+			&user.Username,
+			&user.MemberStatus,
+			&user.InvitedByUserID,
+			&user.InvitedByLinkID,
+			&user.InviteLinkID,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan user: %w", err)
+		}
+
+		users = append(users, &user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating users: %w", err)
+	}
+
+	return users, nil
+}
+
 func (r *UserRepository) Insert(user *types.User) (*types.User, error) {
 	if user == nil {
 		return nil, fmt.Errorf("user is nil")

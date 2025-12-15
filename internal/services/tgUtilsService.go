@@ -29,6 +29,7 @@ func (s *TGUtilsService) SendMessage(chatID int64, text string) error {
 
 	// Создаем сообщение
 	msg := tgbotapi.NewMessage(chatID, text)
+	msg.ParseMode = "HTML"
 
 	// Отправляем сообщение
 	_, err = botAPI.Send(msg)
